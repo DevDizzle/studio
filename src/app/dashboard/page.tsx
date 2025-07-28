@@ -39,16 +39,11 @@ export default function DashboardPage() {
   const [selectedTickers, setSelectedTickers] = useState<Option[]>([]);
   const [selectedSector, setSelectedSector] = useState('');
   const [selectedIndustry, setSelectedIndustry] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'system',
-      content: 'Select an analysis type and make a selection to start.',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [initialRecommendation, setInitialRecommendation] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
-  const [activeTab, setActiveTab] = useState('ai-top-pick');
+  const [activeTab, setActiveTab] = useState('stock-analysis');
 
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -59,19 +54,26 @@ export default function DashboardPage() {
   }));
 
   const handleTickerSelection = (selected: Option[]) => {
-    const limit = activeTab === 'ai-top-pick' ? 1 : 2;
-    if (selected.length <= limit) {
+    setSelectedTickers(selected);
+  };
+  
+  const handleAITickerSelection = (selected: Option[]) => {
+    // AI Top pick only allows 1 stock
+    if (selected.length <= 1) {
       setSelectedTickers(selected);
     }
   };
 
   const getRecommendation = async () => {
-    if (selectedTickers.length === 0) return;
-    
+    if (isLaunchAnalysisDisabled()) return;
+
     setIsLoading(true);
     setMessages([]);
     
-    const tickerValues = selectedTickers.map(t => t.value);
+    let tickerValues: string[] = [];
+    if(activeTab === 'stock-analysis') {
+        tickerValues = selectedTickers.map(t => t.value);
+    }
     
     // Optimistically show a loading skeleton
     setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
@@ -82,6 +84,24 @@ export default function DashboardPage() {
     setMessages([{ role: 'assistant', content: result.recommendation }]);
     setIsLoading(false);
   };
+  
+  const getAITopPick = async () => {
+    if (selectedTickers.length === 0) return;
+    
+    setIsLoading(true);
+    setActiveTab('');
+    setMessages([]);
+
+    const tickerValues = selectedTickers.map(t => t.value);
+
+    setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
+
+    const result = await handleGetRecommendation(tickerValues);
+
+    setInitialRecommendation(result.recommendation);
+    setMessages([{ role: 'assistant', content: result.recommendation }]);
+    setIsLoading(false);
+  }
 
   const submitFollowUp = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -137,17 +157,11 @@ export default function DashboardPage() {
     setSelectedTickers([]);
     setSelectedSector('');
     setSelectedIndustry('');
-    setMessages([
-      {
-        role: 'system',
-        content: 'Select an analysis type and make a selection to start.',
-      },
-    ]);
+    setMessages([]);
   }, [activeTab]);
   
-  const isGetRecommendationDisabled = () => {
+  const isLaunchAnalysisDisabled = () => {
     switch (activeTab) {
-        case 'ai-top-pick':
         case 'stock-analysis':
             return isLoading || selectedTickers.length === 0;
         case 'sector-analysis':
@@ -161,20 +175,6 @@ export default function DashboardPage() {
 
   const renderControls = () => {
     switch(activeTab) {
-      case 'ai-top-pick':
-        return (
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Stock Ticker</label>
-            <MultiSelect
-              options={stockOptions}
-              selected={selectedTickers}
-              onChange={handleTickerSelection}
-              className="w-full"
-              placeholder="Select a stock..."
-              max={1}
-            />
-          </div>
-        );
       case 'stock-analysis':
         return (
           <div className="space-y-2">
@@ -232,52 +232,74 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen bg-background">
-      <aside className="w-[350px] flex-shrink-0 border-r border-border p-4 flex flex-col">
-        <div className="flex items-center gap-2 mb-6">
+      <aside className="w-[350px] flex-shrink-0 border-r border-border p-4 flex flex-col gap-4">
+        <div className="flex items-center gap-2">
           <Sparkles className="h-8 w-8 text-primary" />
           <h1 className="text-2xl font-bold font-headline">ProfitScout</h1>
         </div>
-        <Card className="flex-grow flex flex-col">
+        <Card>
           <CardHeader>
             <CardTitle className="font-headline">Controls</CardTitle>
             <CardDescription>Select analysis type and options</CardDescription>
           </CardHeader>
           <CardContent className="flex-grow flex flex-col gap-4">
             {renderControls()}
-            <Button onClick={getRecommendation} disabled={isGetRecommendationDisabled()} className="w-full mt-2">
-              {isLoading && messages.length === 1 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Get Recommendation
+            <Button onClick={getRecommendation} disabled={isLaunchAnalysisDisabled()} className="w-full mt-2">
+              {isLoading && messages.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Launch Analysis
             </Button>
           </CardContent>
-          <div className="p-4 border-t border-border mt-auto">
-             <div className="space-y-2">
-              <label className="text-sm font-medium">Feedback</label>
-              <Textarea
+        </Card>
+        
+        <Card className="bg-accent/10 border-accent/30">
+            <CardHeader>
+                <CardTitle className="font-headline flex items-center gap-2">
+                    <Sparkles className="text-accent" />
+                    AI Top Pick
+                </CardTitle>
+                <CardDescription>Get an AI-powered recommendation for a single stock.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Stock Ticker</label>
+                    <MultiSelect
+                        options={stockOptions}
+                        selected={selectedTickers}
+                        onChange={handleAITickerSelection}
+                        className="w-full"
+                        placeholder="Select a stock..."
+                        max={1}
+                    />
+                </div>
+                <Button onClick={getAITopPick} disabled={isLoading || selectedTickers.length === 0} className="w-full mt-4">
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Get Recommendation
+                </Button>
+            </CardContent>
+        </Card>
+
+        <div className="p-4 border-t border-border mt-auto">
+            <div className="space-y-2">
+            <label className="text-sm font-medium">Feedback</label>
+            <Textarea
                 placeholder="Tell us what you think..."
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
-                rows={4}
-              />
-              <Button onClick={submitFeedback} variant="secondary" className="w-full" disabled={!feedbackText.trim()}>
+                rows={3}
+            />
+            <Button onClick={submitFeedback} variant="secondary" className="w-full" disabled={!feedbackText.trim()}>
                 Submit Feedback
-              </Button>
+            </Button>
             </div>
-          </div>
-        </Card>
+        </div>
       </aside>
       <main className="flex-1 flex flex-col p-4">
          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow flex flex-col">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="ai-top-pick" className={cn(activeTab === 'ai-top-pick' && 'bg-accent/20 text-accent-foreground border border-accent/50')}>
-              <Sparkles className="mr-2" />AI Top Pick
-            </TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="stock-analysis"><GitCompareArrows className="mr-2" />Stock Analysis</TabsTrigger>
             <TabsTrigger value="sector-analysis"><PieChart className="mr-2" />Sector Analysis</TabsTrigger>
             <TabsTrigger value="industry-analysis"><Building2 className="mr-2" />Industry Analysis</TabsTrigger>
           </TabsList>
-          <TabsContent value="ai-top-pick" className="flex-grow flex flex-col mt-4">
-            {renderChat()}
-          </TabsContent>
           <TabsContent value="stock-analysis" className="flex-grow flex flex-col mt-4">
             {renderChat()}
           </TabsContent>
@@ -293,12 +315,14 @@ export default function DashboardPage() {
   );
 
   function renderChat() {
-     const showChat = (activeTab === 'ai-top-pick' || activeTab === 'stock-analysis') || (messages.length > 1 || (messages.length === 1 && messages[0].role !== 'system'));
-
-    if (!showChat && (activeTab === 'sector-analysis' || activeTab === 'industry-analysis')) {
+     if (messages.length === 0 && !isLoading) {
         return (
-            <div className="flex-grow flex items-center justify-center text-muted-foreground">
-                <p>Select a {activeTab.split('-')[0]} to begin analysis.</p>
+            <div className="flex-grow flex flex-col items-center justify-center text-center text-muted-foreground p-8">
+                <div className="bg-primary/10 p-4 rounded-full mb-4">
+                  <Bot className="h-12 w-12 text-primary" />
+                </div>
+                <h2 className="text-xl font-semibold text-foreground">Welcome to ProfitScout</h2>
+                <p className="max-w-md mt-2">To get started, select an analysis type from the controls on the left and launch your analysis.</p>
             </div>
         )
     }
