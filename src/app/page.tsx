@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Bot, GitCompareArrows, LineChart, PieChart } from "lucide-react";
+import { ArrowRight, Bot, GitCompareArrows, LineChart, PieChart, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 const features = [

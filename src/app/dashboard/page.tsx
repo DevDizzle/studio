@@ -80,7 +80,6 @@ export default function DashboardPage() {
   
   const getAITopPick = async () => {
     setIsLoading(true);
-    setActiveTab('');
     setMessages([]);
     setSelectedTickers([]);
 
@@ -224,9 +223,7 @@ export default function DashboardPage() {
   return (
     <div className="flex h-screen bg-background">
       <aside className="w-[350px] flex-shrink-0 border-r border-border p-4 flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold font-headline">ProfitScout</h1>
-        </div>
+        <h1 className="text-2xl font-bold font-headline">ProfitScout</h1>
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Controls</CardTitle>
@@ -241,17 +238,17 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
         
-        <Card className="bg-accent/10 border-accent/30">
+        <Card className="bg-card">
             <CardHeader>
                 <CardTitle className="font-headline flex items-center gap-2">
-                    <Sparkles className="text-accent" />
+                    <Sparkles className="text-primary" />
                     AI Top Pick
                 </CardTitle>
                 <CardDescription>Let our AI find the best stock for you right now.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Button onClick={getAITopPick} disabled={isLoading} className="w-full">
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {isLoading && selectedTickers.length === 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Get AI Top Pick
                 </Button>
             </CardContent>
