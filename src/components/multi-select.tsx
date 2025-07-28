@@ -31,6 +31,7 @@ interface MultiSelectProps {
   onChange: (selected: Option[]) => void;
   className?: string;
   placeholder?: string;
+  max?: number;
 }
 
 export function MultiSelect({
@@ -39,6 +40,7 @@ export function MultiSelect({
   onChange,
   className,
   placeholder = 'Select...',
+  max = 2,
   ...props
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
@@ -101,7 +103,7 @@ export function MultiSelect({
                         handleSelect(option)
                         // Do not close on select to allow multi-selection
                     }}
-                    disabled={!isSelected && selected.length >= 2}
+                    disabled={!isSelected && selected.length >= max}
                   >
                     <Check
                       className={cn(

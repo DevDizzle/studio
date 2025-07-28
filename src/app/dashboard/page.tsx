@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { STOCKS } from '@/lib/stocks';
 import { handleGetRecommendation, handleFollowUp, handleFeedback } from '../actions';
 import { MultiSelect, type Option } from '@/components/multi-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,12 +21,27 @@ type Message = {
   content: string | React.ReactNode;
 };
 
+// Placeholder data
+const SECTORS = [
+    { value: 'tech', label: 'Technology' },
+    { value: 'health', label: 'Healthcare' },
+    { value: 'finance', label: 'Finance' },
+];
+
+const INDUSTRIES = [
+    { value: 'saas', label: 'SaaS' },
+    { value: 'pharma', label: 'Pharmaceuticals' },
+    { value: 'banking', label: 'Banking' },
+];
+
 export default function DashboardPage() {
   const [selectedTickers, setSelectedTickers] = useState<Option[]>([]);
+  const [selectedSector, setSelectedSector] = useState('');
+  const [selectedIndustry, setSelectedIndustry] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'system',
-      content: 'Select up to 2 stocks and click "Get Recommendation" to start.',
+      content: 'Select an analysis type and make a selection to start.',
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +58,8 @@ export default function DashboardPage() {
   }));
 
   const handleTickerSelection = (selected: Option[]) => {
-    if (selected.length <= 2) {
+    const limit = activeTab === 'deep-dive' ? 1 : 2;
+    if (selected.length <= limit) {
       setSelectedTickers(selected);
     }
   };
@@ -63,12 +80,6 @@ export default function DashboardPage() {
     setInitialRecommendation(result.recommendation);
     setMessages([{ role: 'assistant', content: result.recommendation }]);
     setIsLoading(false);
-    
-    if (tickerValues.length === 2) {
-        setActiveTab('comparison');
-    } else {
-        setActiveTab('deep-dive');
-    }
   };
 
   const submitFollowUp = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -120,6 +131,89 @@ export default function DashboardPage() {
       });
     }
   }, [messages]);
+  
+  const isGetRecommendationDisabled = () => {
+    switch (activeTab) {
+        case 'deep-dive':
+        case 'comparison':
+            return isLoading || selectedTickers.length === 0;
+        case 'sector-analysis':
+            return isLoading || !selectedSector;
+        case 'industry-analysis':
+            return isLoading || !selectedIndustry;
+        default:
+            return true;
+    }
+  }
+
+  const renderControls = () => {
+    switch(activeTab) {
+      case 'deep-dive':
+        return (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Stock Ticker</label>
+            <MultiSelect
+              options={stockOptions}
+              selected={selectedTickers}
+              onChange={handleTickerSelection}
+              className="w-full"
+              placeholder="Select a stock..."
+            />
+          </div>
+        );
+      case 'comparison':
+        return (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
+            <MultiSelect
+              options={stockOptions}
+              selected={selectedTickers}
+              onChange={handleTickerSelection}
+              className="w-full"
+              placeholder="Select stocks..."
+            />
+          </div>
+        );
+      case 'sector-analysis':
+        return (
+           <div className="space-y-2">
+            <label className="text-sm font-medium">Sector</label>
+            <Select onValueChange={setSelectedSector} value={selectedSector}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a sector..." />
+              </SelectTrigger>
+              <SelectContent>
+                {SECTORS.map(sector => (
+                    <SelectItem key={sector.value} value={sector.value}>
+                        {sector.label}
+                    </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      case 'industry-analysis':
+        return (
+           <div className="space-y-2">
+            <label className="text-sm font-medium">Industry</label>
+             <Select onValueChange={setSelectedIndustry} value={selectedIndustry}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select an industry..." />
+              </SelectTrigger>
+              <SelectContent>
+                {INDUSTRIES.map(industry => (
+                    <SelectItem key={industry.value} value={industry.value}>
+                        {industry.label}
+                    </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      default:
+        return null;
+    }
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -131,20 +225,11 @@ export default function DashboardPage() {
         <Card className="flex-grow flex flex-col">
           <CardHeader>
             <CardTitle className="font-headline">Controls</CardTitle>
-            <CardDescription>Select stocks to analyze</CardDescription>
+            <CardDescription>Select analysis type and options</CardDescription>
           </CardHeader>
           <CardContent className="flex-grow flex flex-col gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
-              <MultiSelect
-                options={stockOptions}
-                selected={selectedTickers}
-                onChange={handleTickerSelection}
-                className="w-full"
-                placeholder="Select stocks..."
-              />
-            </div>
-            <Button onClick={getRecommendation} disabled={isLoading || selectedTickers.length === 0} className="w-full">
+            {renderControls()}
+            <Button onClick={getRecommendation} disabled={isGetRecommendationDisabled()} className="w-full mt-2">
               {isLoading && messages.length === 1 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Get Recommendation
             </Button>
@@ -168,8 +253,8 @@ export default function DashboardPage() {
       <main className="flex-1 flex flex-col p-4">
          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow flex flex-col">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="deep-dive" disabled={selectedTickers.length > 1}><LineChart className="mr-2" />Deep Dive</TabsTrigger>
-            <TabsTrigger value="comparison" disabled={selectedTickers.length !== 2}><GitCompareArrows className="mr-2" />Comparison</TabsTrigger>
+            <TabsTrigger value="deep-dive"><LineChart className="mr-2" />Deep Dive</TabsTrigger>
+            <TabsTrigger value="comparison"><GitCompareArrows className="mr-2" />Comparison</TabsTrigger>
             <TabsTrigger value="sector-analysis"><PieChart className="mr-2" />Sector Analysis</TabsTrigger>
             <TabsTrigger value="industry-analysis"><Building2 className="mr-2" />Industry Analysis</TabsTrigger>
           </TabsList>
@@ -179,11 +264,11 @@ export default function DashboardPage() {
           <TabsContent value="comparison" className="flex-grow flex flex-col mt-4">
             {renderChat()}
           </TabsContent>
-          <TabsContent value="sector-analysis" className="flex-grow flex items-center justify-center text-muted-foreground">
-            <p>Sector analysis coming soon.</p>
+          <TabsContent value="sector-analysis" className="flex-grow flex flex-col mt-4">
+            {renderChat()}
           </TabsContent>
-          <TabsContent value="industry-analysis" className="flex-grow flex items-center justify-center text-muted-foreground">
-            <p>Industry analysis coming soon.</p>
+          <TabsContent value="industry-analysis" className="flex-grow flex flex-col mt-4">
+            {renderChat()}
           </TabsContent>
         </Tabs>
       </main>
@@ -191,6 +276,16 @@ export default function DashboardPage() {
   );
 
   function renderChat() {
+     const showChat = (activeTab === 'deep-dive' || activeTab === 'comparison') || (messages.length > 1 || (messages.length === 1 && messages[0].role !== 'system'));
+
+    if (!showChat && (activeTab === 'sector-analysis' || activeTab === 'industry-analysis')) {
+        return (
+            <div className="flex-grow flex items-center justify-center text-muted-foreground">
+                <p>Analysis for this section is coming soon.</p>
+            </div>
+        )
+    }
+
     return (
       <Card className="flex-1 flex flex-col">
         <CardContent className="flex-1 flex flex-col p-4">
