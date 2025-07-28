@@ -15,6 +15,7 @@ import { MultiSelect, type Option } from '@/components/multi-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 type Message = {
   role: 'user' | 'assistant' | 'system';
@@ -47,7 +48,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [initialRecommendation, setInitialRecommendation] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
-  const [activeTab, setActiveTab] = useState('deep-dive');
+  const [activeTab, setActiveTab] = useState('ai-top-pick');
 
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -58,7 +59,7 @@ export default function DashboardPage() {
   }));
 
   const handleTickerSelection = (selected: Option[]) => {
-    const limit = activeTab === 'deep-dive' ? 1 : 2;
+    const limit = activeTab === 'ai-top-pick' ? 1 : 2;
     if (selected.length <= limit) {
       setSelectedTickers(selected);
     }
@@ -131,11 +132,23 @@ export default function DashboardPage() {
       });
     }
   }, [messages]);
+
+  useEffect(() => {
+    setSelectedTickers([]);
+    setSelectedSector('');
+    setSelectedIndustry('');
+    setMessages([
+      {
+        role: 'system',
+        content: 'Select an analysis type and make a selection to start.',
+      },
+    ]);
+  }, [activeTab]);
   
   const isGetRecommendationDisabled = () => {
     switch (activeTab) {
-        case 'deep-dive':
-        case 'comparison':
+        case 'ai-top-pick':
+        case 'stock-analysis':
             return isLoading || selectedTickers.length === 0;
         case 'sector-analysis':
             return isLoading || !selectedSector;
@@ -148,7 +161,7 @@ export default function DashboardPage() {
 
   const renderControls = () => {
     switch(activeTab) {
-      case 'deep-dive':
+      case 'ai-top-pick':
         return (
           <div className="space-y-2">
             <label className="text-sm font-medium">Stock Ticker</label>
@@ -158,10 +171,11 @@ export default function DashboardPage() {
               onChange={handleTickerSelection}
               className="w-full"
               placeholder="Select a stock..."
+              max={1}
             />
           </div>
         );
-      case 'comparison':
+      case 'stock-analysis':
         return (
           <div className="space-y-2">
             <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
@@ -170,7 +184,8 @@ export default function DashboardPage() {
               selected={selectedTickers}
               onChange={handleTickerSelection}
               className="w-full"
-              placeholder="Select stocks..."
+              placeholder="Select up to 2 stocks..."
+              max={2}
             />
           </div>
         );
@@ -253,15 +268,17 @@ export default function DashboardPage() {
       <main className="flex-1 flex flex-col p-4">
          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow flex flex-col">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="deep-dive"><LineChart className="mr-2" />Deep Dive</TabsTrigger>
-            <TabsTrigger value="comparison"><GitCompareArrows className="mr-2" />Comparison</TabsTrigger>
+            <TabsTrigger value="ai-top-pick" className={cn(activeTab === 'ai-top-pick' && 'bg-accent/20 text-accent-foreground border border-accent/50')}>
+              <Sparkles className="mr-2" />AI Top Pick
+            </TabsTrigger>
+            <TabsTrigger value="stock-analysis"><GitCompareArrows className="mr-2" />Stock Analysis</TabsTrigger>
             <TabsTrigger value="sector-analysis"><PieChart className="mr-2" />Sector Analysis</TabsTrigger>
             <TabsTrigger value="industry-analysis"><Building2 className="mr-2" />Industry Analysis</TabsTrigger>
           </TabsList>
-          <TabsContent value="deep-dive" className="flex-grow flex flex-col mt-4">
+          <TabsContent value="ai-top-pick" className="flex-grow flex flex-col mt-4">
             {renderChat()}
           </TabsContent>
-          <TabsContent value="comparison" className="flex-grow flex flex-col mt-4">
+          <TabsContent value="stock-analysis" className="flex-grow flex flex-col mt-4">
             {renderChat()}
           </TabsContent>
           <TabsContent value="sector-analysis" className="flex-grow flex flex-col mt-4">
@@ -276,12 +293,12 @@ export default function DashboardPage() {
   );
 
   function renderChat() {
-     const showChat = (activeTab === 'deep-dive' || activeTab === 'comparison') || (messages.length > 1 || (messages.length === 1 && messages[0].role !== 'system'));
+     const showChat = (activeTab === 'ai-top-pick' || activeTab === 'stock-analysis') || (messages.length > 1 || (messages.length === 1 && messages[0].role !== 'system'));
 
     if (!showChat && (activeTab === 'sector-analysis' || activeTab === 'industry-analysis')) {
         return (
             <div className="flex-grow flex items-center justify-center text-muted-foreground">
-                <p>Analysis for this section is coming soon.</p>
+                <p>Select a {activeTab.split('-')[0]} to begin analysis.</p>
             </div>
         )
     }

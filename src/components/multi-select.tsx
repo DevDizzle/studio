@@ -40,7 +40,7 @@ export function MultiSelect({
   onChange,
   className,
   placeholder = 'Select...',
-  max = 2,
+  max,
   ...props
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
@@ -57,6 +57,8 @@ export function MultiSelect({
     e.stopPropagation();
     onChange(selected.filter((s) => s.value !== option.value));
   }
+
+  const isMaxReached = max !== undefined && selected.length >= max;
 
   return (
     <Popover open={open} onOpenChange={setOpen} {...props}>
@@ -101,9 +103,11 @@ export function MultiSelect({
                     key={option.value}
                     onSelect={() => {
                         handleSelect(option)
-                        // Do not close on select to allow multi-selection
+                        if (max === 1) {
+                          setOpen(false);
+                        }
                     }}
-                    disabled={!isSelected && selected.length >= max}
+                    disabled={!isSelected && isMaxReached}
                   >
                     <Check
                       className={cn(
