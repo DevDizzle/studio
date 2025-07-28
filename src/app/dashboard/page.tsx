@@ -225,7 +225,6 @@ export default function DashboardPage() {
     <div className="flex h-screen bg-background">
       <aside className="w-[350px] flex-shrink-0 border-r border-border p-4 flex flex-col gap-4">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-8 w-8 text-primary" />
           <h1 className="text-2xl font-bold font-headline">ProfitScout</h1>
         </div>
         <Card>
