@@ -57,13 +57,6 @@ export default function DashboardPage() {
     setSelectedTickers(selected);
   };
   
-  const handleAITickerSelection = (selected: Option[]) => {
-    // AI Top pick only allows 1 stock
-    if (selected.length <= 1) {
-      setSelectedTickers(selected);
-    }
-  };
-
   const getRecommendation = async () => {
     if (isLaunchAnalysisDisabled()) return;
 
@@ -86,17 +79,15 @@ export default function DashboardPage() {
   };
   
   const getAITopPick = async () => {
-    if (selectedTickers.length === 0) return;
-    
     setIsLoading(true);
     setActiveTab('');
     setMessages([]);
-
-    const tickerValues = selectedTickers.map(t => t.value);
+    setSelectedTickers([]);
 
     setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
-    const result = await handleGetRecommendation(tickerValues);
+    // Pass an empty array to indicate it's an AI Top Pick request
+    const result = await handleGetRecommendation([]);
 
     setInitialRecommendation(result.recommendation);
     setMessages([{ role: 'assistant', content: result.recommendation }]);
@@ -257,23 +248,12 @@ export default function DashboardPage() {
                     <Sparkles className="text-accent" />
                     AI Top Pick
                 </CardTitle>
-                <CardDescription>Get an AI-powered recommendation for a single stock.</CardDescription>
+                <CardDescription>Let our AI find the best stock for you right now.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Stock Ticker</label>
-                    <MultiSelect
-                        options={stockOptions}
-                        selected={selectedTickers}
-                        onChange={handleAITickerSelection}
-                        className="w-full"
-                        placeholder="Select a stock..."
-                        max={1}
-                    />
-                </div>
-                <Button onClick={getAITopPick} disabled={isLoading || selectedTickers.length === 0} className="w-full mt-4">
+                <Button onClick={getAITopPick} disabled={isLoading} className="w-full">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Get Recommendation
+                    Get AI Top Pick
                 </Button>
             </CardContent>
         </Card>

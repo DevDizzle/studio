@@ -14,9 +14,9 @@ import {z} from 'zod';
 const InitialRecommendationInputSchema = z.object({
   tickers: z
     .array(z.string())
-    .min(1)
+    .min(0)
     .max(2)
-    .describe('An array of 1 or 2 stock ticker symbols.'),
+    .describe('An array of 0, 1 or 2 stock ticker symbols. If 0, it means the AI should pick one.'),
 });
 export type InitialRecommendationInput = z.infer<
   typeof InitialRecommendationInputSchema
@@ -63,8 +63,10 @@ const initialRecommendationPrompt = ai.definePrompt({
 
   Provide a buy/hold/sell recommendation for the following stock(s) based on real-time data. Use the getStockPrice tool to get the current price of the stock. Provide a brief justification for your recommendation.
 
-  {% if tickers.length == 1 %}
-  Ticker: {{tickers.0}}
+  {% if tickers.length == 0 %}
+  Pick a single promising stock and provide a recommendation for it.
+  {% elif tickers.length == 1 %}
+  Ticker: {{tickers.[0]}}
   {% else %}
   Tickers: {{#each tickers}}{{{this}}} {{/each}}
   {% endif %}`,
