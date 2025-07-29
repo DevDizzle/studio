@@ -118,9 +118,19 @@ export default function DashboardPage() {
 
       if (activeTab === 'stock-analysis' && selectedTickers.length === 1 && input.ticker && input.companyName) {
         const parts = result.recommendation.split('–');
-        const rec = (parts.shift() || '').trim();
-        const summary = (parts.join('–') || '').trim();
-        recommendationText = `**${rec}** - **${input.ticker}** - **${input.companyName}** – ${summary}`;
+        if (parts.length > 1) {
+            const recAndSummary = parts[0].trim();
+            const summary = (parts.slice(1).join('–') || '').trim();
+
+            const firstPeriodIndex = recAndSummary.indexOf('.');
+            if (firstPeriodIndex > -1) {
+                const rec = recAndSummary.substring(0, firstPeriodIndex + 1);
+                const firstSummaryPart = recAndSummary.substring(firstPeriodIndex + 1).trim();
+                recommendationText = `**${rec}** ${firstSummaryPart} – ${summary}`;
+            } else {
+                 recommendationText = `**${recAndSummary}** – ${summary}`;
+            }
+        }
       } else if (activeTab === 'stock-analysis' && selectedTickers.length === 0) { // AI Top Pick
         const parts = result.recommendation.split('–');
         const tickerAndName = (parts.shift() || '').replace('AI Top Pick:', '').trim();
