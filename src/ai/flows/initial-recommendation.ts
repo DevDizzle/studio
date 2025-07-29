@@ -15,9 +15,9 @@ const InitialRecommendationInputSchema = z.object({
   uris: z
     .array(z.string())
     .min(0)
-    .max(2)
+    .max(10)
     .describe(
-      'An array of 0, 1 or 2 GCS URIs for stock data bundles. If 0, the AI should pick one.'
+      'An array of 0, 1, 2 or up to 10 GCS URIs for stock data bundles. If 0, the AI should pick one.'
     ),
   sector: z.string().optional().describe('The sector or industry to analyze.'),
 });
@@ -86,6 +86,82 @@ Sector/Industry: {{sector}}
 {{else}}
   {{#if uris.length}}
     {{#if uris.[1]}}
+      {{#if uris.[2]}}
+########################  SYSTEM PROMPT  —  “AI TOP PICK”  ########################
+You are a financial-analysis agent that must scan **up to 10 JSON bundles,
+each representing one Russell 1000 company**, and surface the single best
+investment idea right now – the **AI Top Pick** – based strictly on the data
+inside those files. No external calls are allowed.
+
+--------------------------------------------------------------------------
+DATA  –  each bundle has the canonical structure
+--------------------------------------------------------------------------
+  •  ticker                     (string)   ←  e.g., "AAPL"
+  •  business_profile           (string)   ←  Item 1 10-K/10-Q text
+  •  earnings_call_summary      (string)   ←  condensed transcript
+  •  sec_mda                    (string)   ←  full MD&A section
+  •  financial_statements       (dict)     ←  latest quarterly IS/BS/CF
+  •  ratios  |  key_metrics     (dict)     ←  valuation & profitability data
+  •  prices                     (array)    ←  90-day OHLC
+  •  technicals                 (array)    ←  SMA, RSI, MACD, etc.
+
+Parse each bundle into Python objects / DataFrames; if a field is missing,
+mark it “Not provided”.
+
+--------------------------------------------------------------------------
+ANALYSIS PIPELINE  –  run for every bundle
+--------------------------------------------------------------------------
+1. **Business Profile**
+   Extract 2-4 core product lines (else “Not provided”), geographic reach,
+   and any explicit moat.
+
+2. **Earnings Momentum**
+   From financials + earnings_call_summary: latest quarter revenue, EPS,
+   YoY / QoQ %, margin trend, and management guidance tone
+   (positive / neutral / negative).
+
+3. **MD&A Risk/Opportunity**
+   Score +1 for each clear growth driver, –1 for each major risk
+   (macro, tariff, liquidity, regulation).
+
+4. **Technical Bias**
+   \`\`\`python
+   trend = (tech[-1]["close"] / tech[0]["close"] - 1) * 100
+   bias  = +1 if tech[-1]["SMA_20"] > tech[-1]["SMA_50"] else -1
+   rsi   = tech[-1]["RSI_14"]
+   overbought = -1 if rsi > 70 else (+1 if rsi < 30 else 0)
+   tech_score = bias + overbought
+Valuation & Quality
+Derive P/E, P/S, gross & operating margin, ROE, debt-to-equity.
+• Valuation premium (P/E > 25 ×) → –1; discount (< 15 ×) → +1.
+• Margins or ROE improving QoQ → +1; deteriorating → –1.
+• Leverage > 2× equity → –1.
+
+Composite Score = Earnings + MD&A + Technical + Val/Quality
+(Each component is the sum of its sub-scores; range roughly –10 … +10.)
+
+PICK THE WINNER
+Select the ticker with the highest Composite Score.
+In a tie, choose the one with (1) the lowest leverage, then (2) the highest
+YoY revenue growth.
+
+OUTPUT – ≤ 350 words
+AI Top Pick: <TICKER> — bold ticker, one-sentence punchline.
+
+Why It’s #1 (3-5 bullets):
+• Key driver #1
+• Key driver #2
+• …
+
+Runner-Ups (one line each)::
+TICKER – score, one-phrase reason (list the other bundles in descending score order).
+
+Section Snapshot for Top Pick (≤ 60 chars each):
+Business | Earnings | MD&A | Technicals | Valuation
+
+Finish with:
+“Ask for deeper details on any ticker!”
+      {{else}}
 You are a financial advisor providing investment recommendations.
 
 Provide concise buy/hold/sell recommendations for each of the two stocks based on the provided data bundles, including a comparative analysis. Structure your response as follows:
@@ -99,6 +175,7 @@ Provide concise buy/hold/sell recommendations for each of the two stocks based o
 Use real-time data if needed via tools (e.g., current stock prices, recent news). Keep the entire response under 500 words for quick readability. Encourage follow-up questions for more depth.
 
 Stock URIs: {{uris.[0]}} and {{uris.[1]}}
+      {{/if}}
     {{else}}
 You are a financial-analysis agent that issues concise BUY / HOLD / SELL
 recommendations on any Russell 1000 company.
@@ -160,13 +237,6 @@ Use real-time data if needed via tools (e.g., current stock price, recent news).
   {{/if}}
 {{/if}}`;
 
-const initialRecommendationPrompt = ai.definePrompt({
-  name: 'initialRecommendationPrompt',
-  input: {schema: InitialRecommendationInputSchema},
-  output: {schema: InitialRecommendationOutputSchema},
-  tools: [getStockPrice],
-  prompt: PROMPT_TEMPLATE,
-});
 
 const initialRecommendationFlow = ai.defineFlow(
   {
@@ -175,7 +245,21 @@ const initialRecommendationFlow = ai.defineFlow(
     outputSchema: InitialRecommendationOutputSchema,
   },
   async (input) => {
-    const {output} = await initialRecommendationPrompt(input);
+    const { output } = await ai.generate({
+      prompt: {
+        template: PROMPT_TEMPLATE,
+        input: {
+          uris: input.uris,
+          sector: input.sector,
+        }
+      },
+      output: {
+        schema: InitialRecommendationOutputSchema,
+      },
+      tools: [getStockPrice],
+    });
     return output!;
   }
 );
+
+    
