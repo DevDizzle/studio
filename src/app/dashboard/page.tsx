@@ -41,6 +41,7 @@ export default function DashboardPage() {
   const [selectedIndustry, setSelectedIndustry] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingStocks, setIsFetchingStocks] = useState(true);
   const [initialRecommendation, setInitialRecommendation] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
   const [activeTab, setActiveTab] = useState('stock-analysis');
@@ -50,15 +51,26 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchStocks() {
-      const stocks = await getStocks();
-      const options = stocks.map((stock: Stock) => ({
-        value: stock.bundle_gcs_path, // Pass GCS path as value
-        label: `${stock.id} - ${stock.company_name}`,
-      }));
-      setStockOptions(options);
+      try {
+        const stocks = await getStocks();
+        const options = stocks.map((stock: Stock) => ({
+          value: stock.bundle_gcs_path, // Pass GCS path as value
+          label: `${stock.id} - ${stock.company_name}`,
+        }));
+        setStockOptions(options);
+      } catch (error) {
+        console.error("Failed to fetch stocks:", error);
+        toast({
+            title: "Error",
+            description: "Could not load stock data. Please try again later.",
+            variant: "destructive"
+        })
+      } finally {
+        setIsFetchingStocks(false);
+      }
     }
     fetchStocks();
-  }, []);
+  }, [toast]);
 
   const handleTickerSelection = (selected: Option[]) => {
     setSelectedTickers(selected);
@@ -177,7 +189,7 @@ export default function DashboardPage() {
         return (
           <div className="space-y-2">
             <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
-            {stockOptions.length === 0 ? <Skeleton className="h-10 w-full" /> : (
+            {isFetchingStocks ? <Skeleton className="h-10 w-full" /> : (
               <MultiSelect
                 options={stockOptions}
                 selected={selectedTickers}
