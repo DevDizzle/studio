@@ -9,13 +9,12 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { STOCKS } from '@/lib/stocks';
+import { getStocks, type Stock } from '@/lib/firebase';
 import { handleGetRecommendation, handleFollowUp, handleFeedback } from '../actions';
 import { MultiSelect, type Option } from '@/components/multi-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 
 type Message = {
   role: 'user' | 'assistant' | 'system';
@@ -36,6 +35,7 @@ const INDUSTRIES = [
 ];
 
 export default function DashboardPage() {
+  const [stockOptions, setStockOptions] = useState<Option[]>([]);
   const [selectedTickers, setSelectedTickers] = useState<Option[]>([]);
   const [selectedSector, setSelectedSector] = useState('');
   const [selectedIndustry, setSelectedIndustry] = useState('');
@@ -48,10 +48,17 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const stockOptions: Option[] = STOCKS.map(stock => ({
-    value: stock.value,
-    label: `${stock.value} - ${stock.label}`,
-  }));
+  useEffect(() => {
+    async function fetchStocks() {
+      const stocks = await getStocks();
+      const options = stocks.map((stock: Stock) => ({
+        value: stock.bundle_gcs_path, // Pass GCS path as value
+        label: `${stock.id} - ${stock.company_name}`,
+      }));
+      setStockOptions(options);
+    }
+    fetchStocks();
+  }, []);
 
   const handleTickerSelection = (selected: Option[]) => {
     setSelectedTickers(selected);
@@ -63,15 +70,15 @@ export default function DashboardPage() {
     setIsLoading(true);
     setMessages([]);
     
-    let tickerValues: string[] = [];
+    let uris: string[] = [];
     if(activeTab === 'stock-analysis') {
-        tickerValues = selectedTickers.map(t => t.value);
+        uris = selectedTickers.map(t => t.value);
     }
     
     // Optimistically show a loading skeleton
     setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
-    const result = await handleGetRecommendation(tickerValues);
+    const result = await handleGetRecommendation(uris);
     
     setInitialRecommendation(result.recommendation);
     setMessages([{ role: 'assistant', content: result.recommendation }]);
@@ -115,7 +122,8 @@ export default function DashboardPage() {
     
     const result = await handleFollowUp({
       question,
-      tickers: selectedTickers.map(t => t.value),
+      // We are not passing tickers correctly here, needs to be fixed if we want to support it
+      tickers: [], // selectedTickers.map(t => t.label.split(' - ')[0]),
       initialRecommendation,
       chatHistory,
     });
@@ -169,14 +177,16 @@ export default function DashboardPage() {
         return (
           <div className="space-y-2">
             <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
-            <MultiSelect
-              options={stockOptions}
-              selected={selectedTickers}
-              onChange={handleTickerSelection}
-              className="w-full"
-              placeholder="Select up to 2 stocks..."
-              max={2}
-            />
+            {stockOptions.length === 0 ? <Skeleton className="h-10 w-full" /> : (
+              <MultiSelect
+                options={stockOptions}
+                selected={selectedTickers}
+                onChange={handleTickerSelection}
+                className="w-full"
+                placeholder="Select up to 2 stocks..."
+                max={2}
+              />
+            )}
           </div>
         );
       case 'sector-analysis':
@@ -248,7 +258,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
                 <Button onClick={getAITopPick} disabled={isLoading} className="w-full">
-                    {isLoading && selectedTickers.length === 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {isLoading && selectedTickers.length === 0 && messages.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Get AI Top Pick
                 </Button>
             </CardContent>

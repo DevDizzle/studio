@@ -12,11 +12,11 @@ import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 
 const InitialRecommendationInputSchema = z.object({
-  tickers: z
+  uris: z
     .array(z.string())
     .min(0)
     .max(2)
-    .describe('An array of 0, 1 or 2 stock ticker symbols. If 0, it means the AI should pick one.'),
+    .describe('An array of 0, 1 or 2 GCS URIs for stock data bundles. If 0, the AI should pick one.'),
 });
 export type InitialRecommendationInput = z.infer<
   typeof InitialRecommendationInputSchema
@@ -41,14 +41,14 @@ export async function getInitialRecommendation(
 
 const getStockPrice = ai.defineTool({
   name: 'getStockPrice',
-  description: 'Returns the current market value of a stock.',
+  description: 'Returns the current market value of a stock from its GCS URI.',
   inputSchema: z.object({
-    ticker: z.string().describe('The ticker symbol of the stock.'),
+    uri: z.string().describe('The GCS URI of the stock data bundle.'),
   }),
   outputSchema: z.number(),
 },
 async (input) => {
-  console.log("getStockPrice called with ticker: " + input.ticker);
+  console.log("getStockPrice called with uri: " + input.uri);
   // This can call any typescript function.
   // For now, return a dummy value.  Assume it is the price.
   return Math.random() * 100;
@@ -63,12 +63,12 @@ const initialRecommendationPrompt = ai.definePrompt({
 
   Provide a buy/hold/sell recommendation for the following stock(s) based on real-time data. Use the getStockPrice tool to get the current price of the stock. Provide a brief justification for your recommendation.
 
-  {% if tickers.length == 0 %}
+  {% if uris.length == 0 %}
   Pick a single promising stock and provide a recommendation for it.
-  {% elif tickers.length == 1 %}
-  Ticker: {{tickers.[0]}}
+  {% elif uris.length == 1 %}
+  Stock URI: {{uris.[0]}}
   {% else %}
-  Tickers: {{#each tickers}}{{{this}}} {{/each}}
+  Stock URIs: {{#each uris}}{{{this}}} {{/each}}
   {% endif %}`,
 });
 
