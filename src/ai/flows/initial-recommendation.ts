@@ -174,7 +174,7 @@ Provide concise buy/hold/sell recommendations for each of the two stocks based o
 
 3. **Key Sections Overview**: Briefly list 4-6 major analysis sections (e.g., Business Profile, Earnings Summary, MD&A, Price Trends, Technicals, Financials/Ratios) with 1-sentence overviews each for both stocks. End by noting users can ask for deeper details on any section.
 
-Use real-time data if needed via tools (e.g., current stock prices, recent news). Keep the entire response under 500 words for quick readability. Encourage follow-up questions for more depth.
+Use real-time data if needed via tools (e.g., current stock price, recent news). Keep the entire response under 500 words for quick readability. Encourage follow-up questions for more depth.
 
 Stock URIs: {{uris.[0]}} and {{uris.[1]}}
       {{/if}}
@@ -220,7 +220,7 @@ Aggregate positives (growth drivers, technical strength) vs. negatives
 ######################## DISPLAY SPEC ########################
 Return ≤ 500 words:
 
-**Recommendation**: <BOLD BUY / HOLD / SELL> - {{ticker}} - {{companyName}} – single-sentence headline.
+**Recommendation**: **<BUY / HOLD / SELL> - {{ticker}} - {{companyName}}** – single-sentence headline.
 **Brief Reasoning**: 3–5 bullets on decisive factors.
 **Section Snapshots**: one-sentence highlight for each of the 5 sections above.
 
