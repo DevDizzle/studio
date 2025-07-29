@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
+import Handlebars from 'handlebars';
 
 const InitialRecommendationInputSchema = z.object({
   uris: z
@@ -54,12 +55,7 @@ async (input) => {
   return Math.random() * 100;
 });
 
-const initialRecommendationPrompt = ai.definePrompt({
-  name: 'initialRecommendationPrompt',
-  input: {schema: InitialRecommendationInputSchema},
-  output: {schema: InitialRecommendationOutputSchema},
-  tools: [getStockPrice],
-  prompt: `You are a financial advisor providing investment recommendations.
+const PROMPT_TEMPLATE = `You are a financial advisor providing investment recommendations.
 
   Provide a buy/hold/sell recommendation for the following stock(s) based on real-time data. Use the getStockPrice tool to get the current price of the stock. Provide a brief justification for your recommendation.
 
@@ -77,7 +73,15 @@ const initialRecommendationPrompt = ai.definePrompt({
     {{/if}}
   {{else}}
     You are in "AI Top Pick" mode. Pick a single promising stock from a well-known company, provide a recommendation for it, and justify your choice.
-  {{/if}}`,
+  {{/if}}`;
+
+
+const initialRecommendationPrompt = ai.definePrompt({
+  name: 'initialRecommendationPrompt',
+  input: {schema: InitialRecommendationInputSchema},
+  output: {schema: InitialRecommendationOutputSchema},
+  tools: [getStockPrice],
+  prompt: PROMPT_TEMPLATE,
 });
 
 const initialRecommendationFlow = ai.defineFlow(
@@ -87,7 +91,9 @@ const initialRecommendationFlow = ai.defineFlow(
     outputSchema: InitialRecommendationOutputSchema,
   },
   async input => {
-    const {output} = await initialRecommendationPrompt(input);
-    return output!;
+    // Return the rendered prompt for debugging.
+    const template = Handlebars.compile(PROMPT_TEMPLATE);
+    const renderedPrompt = template(input);
+    return { recommendation: `DEBUG: PROMPT\n----------------\n${renderedPrompt}` };
   }
 );
