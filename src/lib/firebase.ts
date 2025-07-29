@@ -44,3 +44,15 @@ export async function getStocks(): Promise<Stock[]> {
     });
     return stocks;
 }
+
+export async function getRandomStocks(count: number): Promise<Stock[]> {
+    const allStocks = await getStocks();
+    
+    // Shuffle the array
+    for (let i = allStocks.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allStocks[i], allStocks[j]] = [allStocks[j], allStocks[i]];
+    }
+
+    return allStocks.slice(0, count);
+}
