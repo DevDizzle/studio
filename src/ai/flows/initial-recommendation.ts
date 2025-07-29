@@ -63,13 +63,17 @@ const initialRecommendationPrompt = ai.definePrompt({
 
   Provide a buy/hold/sell recommendation for the following stock(s) based on real-time data. Use the getStockPrice tool to get the current price of the stock. Provide a brief justification for your recommendation.
 
-  {{#if uris.length}}
-    {{#if (eq uris.length 1)}}
-      You are analyzing one stock.
-      Stock URI: {{uris.[0]}}
-    {{else}}
+  {{#if uris}}
+    {{#if uris.[1]}}
       You are comparing two stocks.
-      Stock URIs: {{#each uris}}{{{this}}} {{/each}}
+      Stock URIs: {{uris.[0]}} and {{uris.[1]}}
+    {{else}}
+      {{#if uris.[0]}}
+        You are analyzing one stock.
+        Stock URI: {{uris.[0]}}
+      {{else}}
+        You are in "AI Top Pick" mode. Pick a single promising stock from a well-known company, provide a recommendation for it, and justify your choice.
+      {{/if}}
     {{/if}}
   {{else}}
     You are in "AI Top Pick" mode. Pick a single promising stock from a well-known company, provide a recommendation for it, and justify your choice.
