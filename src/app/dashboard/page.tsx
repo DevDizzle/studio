@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Building2, GitCompareArrows, Loader2, MessageSquare, PieChart, Send, Settings, User, Sparkles } from 'lucide-react';
+import { Bot, Building2, GitCompareArrows, Loader2, MessageSquare, PieChart, Send, Settings, User, Sparkles, Menu } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import {
   type InitialRecommendationOutput
 } from '@/ai/flows/initial-recommendation';
 import { Markdown } from '@/components/markdown';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 
 type Message = {
@@ -138,7 +139,6 @@ ${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
       setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
       try {
-          // Fetch 10 random stocks and pass their URIs
           const randomStocks = await getRandomStocks(10);
           if (randomStocks.length === 0) {
               throw new Error("No stocks available in the database.");
@@ -266,7 +266,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
     }
   }
 
-  const renderControls = () => {
+  const renderAnalysisControls = () => {
     if (isFetchingStocks) {
       return (
         <div className="space-y-2">
@@ -331,10 +331,9 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
         return null;
     }
   }
-
-  return (
-    <div className="flex h-screen bg-background">
-      <aside className="w-[350px] flex-shrink-0 border-r border-border p-4 flex flex-col gap-4">
+  
+  const SidebarContent = () => (
+    <div className="p-4 flex flex-col gap-4 h-full bg-background">
         <h1 className="text-2xl font-bold font-headline mb-4">ProfitScout</h1>
         
         <Card className="flex-1 flex flex-col">
@@ -346,7 +345,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
             <CardDescription>Select analysis type and options</CardDescription>
           </CardHeader>
           <CardContent className="flex-grow flex flex-col gap-4">
-            {renderControls()}
+            {renderAnalysisControls()}
             <Button onClick={getRecommendation} disabled={isLaunchAnalysisDisabled()} className="w-full mt-auto">
               {isLoading && messages.length > 0 && selectedTickers.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Launch Analysis
@@ -391,8 +390,29 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
                 </Button>
             </CardContent>
         </Card>
+      </div>
+  )
+
+  return (
+    <div className="flex h-screen bg-background">
+      <aside className="w-[350px] flex-shrink-0 border-r border-border hidden md:flex">
+        <SidebarContent />
       </aside>
       <main className="flex-1 flex flex-col p-4">
+         <header className="flex items-center justify-between md:hidden border-b border-border pb-4 mb-4">
+           <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Menu className="h-6 w-6" />
+                <span className="sr-only">Open controls</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-[350px]">
+              <SidebarContent />
+            </SheetContent>
+          </Sheet>
+           <h1 className="text-xl font-bold font-headline text-primary">ProfitScout</h1>
+         </header>
          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow flex flex-col">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="stock-analysis"><GitCompareArrows className="mr-2" />Stock Analysis</TabsTrigger>
