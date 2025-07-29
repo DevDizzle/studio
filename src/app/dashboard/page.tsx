@@ -19,6 +19,7 @@ import {
   type InitialRecommendationInput,
   type InitialRecommendationOutput
 } from '@/ai/flows/initial-recommendation';
+import { Markdown } from '@/components/markdown';
 
 
 type Message = {
@@ -101,22 +102,32 @@ export default function DashboardPage() {
     // Optimistically show a loading skeleton
     setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
-    const result = await handleGetRecommendation(input);
-    
-    setInitialRecommendation(result);
-    
-    const recommendationText = `
-    **Recommendation:** ${result.recommendation}
+    try {
+      const result = await handleGetRecommendation(input);
+      setInitialRecommendation(result);
+      
+      const recommendationText = `
+**Recommendation:** ${result.recommendation}
 
-    **Reasoning:**
-    ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
+**Reasoning:**
+${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
 
-    **Key Sections Overview:**
-    ${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
-  `;
+**Key Sections Overview:**
+${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
+      `;
 
-    setMessages([{ role: 'assistant', content: recommendationText.trim() }]);
-    setIsLoading(false);
+      setMessages([{ role: 'assistant', content: recommendationText.trim() }]);
+    } catch (error) {
+      console.error("Failed to get recommendation:", error);
+      toast({
+        title: "Analysis Failed",
+        description: "Could not generate the analysis. Please try again.",
+        variant: "destructive",
+      });
+      setMessages([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const getAITopPick = async () => {
@@ -126,22 +137,33 @@ export default function DashboardPage() {
 
     setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
-    // Pass an empty array to indicate it's an AI Top Pick request
-    const result = await handleGetRecommendation({ uris: [] });
+    try {
+      // Pass an empty array to indicate it's an AI Top Pick request
+      const result = await handleGetRecommendation({ uris: [] });
 
-    setInitialRecommendation(result);
+      setInitialRecommendation(result);
 
-    const recommendationText = `
-    **Recommendation:** ${result.recommendation}
+      const recommendationText = `
+**Recommendation:** ${result.recommendation}
 
-    **Reasoning:**
-    ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
+**Reasoning:**
+${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
 
-    **Key Sections Overview:**
-    ${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
-  `;
-    setMessages([{ role: 'assistant', content: recommendationText.trim() }]);
-    setIsLoading(false);
+**Key Sections Overview:**
+${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
+      `;
+      setMessages([{ role: 'assistant', content: recommendationText.trim() }]);
+    } catch (error) {
+       console.error("Failed to get AI Top Pick:", error);
+      toast({
+        title: "AI Top Pick Failed",
+        description: "Could not generate the AI Top Pick. Please try again.",
+        variant: "destructive",
+      });
+      setMessages([]);
+    } finally {
+       setIsLoading(false);
+    }
   }
 
   const submitFollowUp = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -165,24 +187,36 @@ export default function DashboardPage() {
     }));
 
     const initialRecommendationText = `
-    **Recommendation:** ${initialRecommendation.recommendation}
+**Recommendation:** ${initialRecommendation.recommendation}
 
-    **Reasoning:**
-    ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
+**Reasoning:**
+${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
 
-    **Key Sections Overview:**
-    ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).join('\n')}
+**Key Sections Overview:**
+${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).join('\n')}
   `;
     
-    const result = await handleFollowUp({
-      question,
-      tickers: selectedTickers.map(t => t.label.split(' - ')[0]),
-      initialRecommendation: initialRecommendationText.trim(),
-      chatHistory,
-    });
+    try {
+      const result = await handleFollowUp({
+        question,
+        tickers: selectedTickers.map(t => t.label.split(' - ')[0]),
+        initialRecommendation: initialRecommendationText.trim(),
+        chatHistory,
+      });
 
-    setMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: result.answer }]);
-    setIsLoading(false);
+      setMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: result.answer }]);
+    } catch (error) {
+      console.error("Follow-up failed:", error);
+      toast({
+        title: "Follow-up Failed",
+        description: "Could not get an answer. Please try again.",
+        variant: "destructive",
+      });
+      // remove the user message and skeleton
+      setMessages(prev => prev.slice(0, -2));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const submitFeedback = async () => {
@@ -209,6 +243,7 @@ export default function DashboardPage() {
     setSelectedSector('');
     setSelectedIndustry('');
     setMessages([]);
+    setInitialRecommendation(null);
   }, [activeTab]);
   
   const isLaunchAnalysisDisabled = () => {
@@ -302,7 +337,7 @@ export default function DashboardPage() {
           <CardContent className="flex-grow flex flex-col gap-4">
             {renderControls()}
             <Button onClick={getRecommendation} disabled={isLaunchAnalysisDisabled()} className="w-full mt-2">
-              {isLoading && messages.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isLoading && messages.length > 0 && selectedTickers.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Launch Analysis
             </Button>
           </CardContent>
@@ -391,7 +426,11 @@ export default function DashboardPage() {
                         : 'bg-card'
                     }`}
                   >
-                    <div className="prose prose-invert text-sm break-words whitespace-pre-wrap">{message.content}</div>
+                    {typeof message.content === 'string' ? (
+                        <Markdown content={message.content} />
+                    ) : (
+                        message.content
+                    )}
                   </div>
                   {message.role === 'user' && (
                      <div className="bg-secondary rounded-full p-2">
@@ -411,7 +450,7 @@ export default function DashboardPage() {
                 disabled={isLoading || messages.length === 0 || initialRecommendation === null}
               />
               <Button type="submit" disabled={isLoading || messages.length === 0 || initialRecommendation === null} size="icon" aria-label="Send message">
-                {isLoading && messages.length > 1 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isLoading && messages.some(m => m.role === 'user') ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </form>
           </div>
@@ -428,5 +467,3 @@ const MessageSkeleton = () => (
     <Skeleton className="h-4 w-[220px]" />
   </div>
 );
-
-    
