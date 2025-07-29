@@ -93,11 +93,13 @@ export default function DashboardPage() {
     setMessages([]);
     
     let input: InitialRecommendationInput = { uris: [] };
+    let ticker: string | undefined;
+    let companyName: string | undefined;
     
     if (activeTab === 'stock-analysis') {
       input.uris = selectedTickers.map(t => t.value);
       if (selectedTickers.length === 1) {
-          const [ticker, companyName] = selectedTickers[0].label.split(' - ');
+          [ticker, companyName] = selectedTickers[0].label.split(' - ');
           input.ticker = ticker;
           input.companyName = companyName;
       }
@@ -113,9 +115,23 @@ export default function DashboardPage() {
     try {
       const result = await handleGetRecommendation(input);
       setInitialRecommendation(result);
+
+      let recommendationText = `**Recommendation:** ${result.recommendation}`;
       
-      const recommendationText = `
-**Recommendation:** ${result.recommendation}
+      if (activeTab === 'stock-analysis' && selectedTickers.length === 1 && ticker && companyName) {
+        const parts = result.recommendation.split(' - ');
+        const rec = parts.shift() || '';
+        const summary = parts.join(' - ');
+        recommendationText = `**Recommendation:** **${rec.toUpperCase()} - ${ticker} - ${companyName}** – ${summary}`;
+      } else if (activeTab === 'stock-analysis' && selectedTickers.length === 0) { // AI Top Pick
+        const parts = result.recommendation.split(' - ');
+        const tickerAndName = (parts.shift() || '').replace('AI Top Pick: ', '');
+        const summary = parts.join(' - ');
+        recommendationText = `**Recommendation:** **AI Top Pick: ${tickerAndName}** – ${summary}`;
+      }
+      
+      const fullMessage = `
+${recommendationText}
 
 **Reasoning:**
 ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
@@ -124,7 +140,7 @@ ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
 ${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
       `;
 
-      setMessages([{ role: 'assistant', content: recommendationText.trim() }]);
+      setMessages([{ role: 'assistant', content: fullMessage.trim() }]);
     } catch (error) {
       console.error("Failed to get recommendation:", error);
       toast({
