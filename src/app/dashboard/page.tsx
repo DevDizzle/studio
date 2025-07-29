@@ -114,22 +114,22 @@ export default function DashboardPage() {
       const result = await handleGetRecommendation(input);
       setInitialRecommendation(result);
 
-      let recommendationText = `**Recommendation:** ${result.recommendation}`;
-      
+      let recommendationText = result.recommendation;
+
       if (activeTab === 'stock-analysis' && selectedTickers.length === 1 && input.ticker && input.companyName) {
         const parts = result.recommendation.split('–');
         const rec = (parts.shift() || '').trim();
         const summary = (parts.join('–') || '').trim();
-        recommendationText = `**Recommendation:** **${rec}** - **${input.ticker}** - **${input.companyName}** – ${summary}`;
+        recommendationText = `**${rec}** - **${input.ticker}** - **${input.companyName}** – ${summary}`;
       } else if (activeTab === 'stock-analysis' && selectedTickers.length === 0) { // AI Top Pick
         const parts = result.recommendation.split('–');
         const tickerAndName = (parts.shift() || '').replace('AI Top Pick:', '').trim();
         const summary = (parts.join('–') || '').trim();
-        recommendationText = `**Recommendation:** **AI Top Pick: ${tickerAndName}** – ${summary}`;
+        recommendationText = `**AI Top Pick: ${tickerAndName}** – ${summary}`;
       }
-      
+
       const fullMessage = `
-${recommendationText}
+**Recommendation:** ${recommendationText}
 
 **Reasoning:**
 ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
@@ -250,6 +250,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
 
   const submitFeedback = async () => {
     if (!feedbackText.trim()) return;
+    setIsLoading(true);
     await handleFeedback(feedbackText);
     setFeedbackText('');
     setIsSheetOpen(false);
@@ -257,6 +258,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
       title: 'Feedback Submitted',
       description: 'Thank you for helping us improve ProfitScout!',
     });
+    setIsLoading(false);
   };
   
   useEffect(() => {
@@ -407,8 +409,10 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
                     onChange={(e) => setFeedbackText(e.target.value)}
                     rows={3}
                     className="flex-grow"
+                    disabled={isLoading}
                 />
-                <Button onClick={submitFeedback} className="w-full" disabled={!feedbackText.trim()}>
+                <Button onClick={submitFeedback} className="w-full" disabled={!feedbackText.trim() || isLoading}>
+                    {isLoading && !messages.length ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Submit Feedback
                 </Button>
             </CardContent>
