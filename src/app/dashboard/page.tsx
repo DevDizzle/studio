@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Building2, GitCompareArrows, Loader2, PieChart, Send, User, Sparkles } from 'lucide-react';
+import { Bot, Building2, GitCompareArrows, Loader2, MessageSquare, PieChart, Send, Settings, User, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { getStocks, type Stock } from '@/lib/firebase';
+import { getStocks, getRandomStocks, type Stock } from '@/lib/firebase';
 import { handleGetRecommendation, handleFollowUp, handleFeedback } from '../actions';
 import { MultiSelect, type Option } from '@/components/multi-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -131,19 +131,25 @@ ${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
   };
   
   const getAITopPick = async () => {
-    setIsLoading(true);
-    setMessages([]);
-    setSelectedTickers([]);
+      setIsLoading(true);
+      setMessages([]);
+      setSelectedTickers([]);
 
-    setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
+      setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
-    try {
-      // Pass an empty array to indicate it's an AI Top Pick request
-      const result = await handleGetRecommendation({ uris: [] });
+      try {
+          // Fetch 10 random stocks and pass their URIs
+          const randomStocks = await getRandomStocks(10);
+          if (randomStocks.length === 0) {
+              throw new Error("No stocks available in the database.");
+          }
+          
+          const uris = randomStocks.map(s => s.bundle_gcs_path);
+          const result = await handleGetRecommendation({ uris });
 
-      setInitialRecommendation(result);
+          setInitialRecommendation(result);
 
-      const recommendationText = `
+          const recommendationText = `
 **Recommendation:** ${result.recommendation}
 
 **Reasoning:**
@@ -151,20 +157,21 @@ ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
 
 **Key Sections Overview:**
 ${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
-      `;
-      setMessages([{ role: 'assistant', content: recommendationText.trim() }]);
-    } catch (error) {
-       console.error("Failed to get AI Top Pick:", error);
-      toast({
-        title: "AI Top Pick Failed",
-        description: "Could not generate the AI Top Pick. Please try again.",
-        variant: "destructive",
-      });
-      setMessages([]);
-    } finally {
-       setIsLoading(false);
-    }
-  }
+          `;
+          setMessages([{ role: 'assistant', content: recommendationText.trim() }]);
+      } catch (error) {
+          console.error("Failed to get AI Top Pick:", error);
+          toast({
+              title: "AI Top Pick Failed",
+              description: "Could not generate the AI Top Pick. Please try again.",
+              variant: "destructive",
+          });
+          setMessages([]);
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
 
   const submitFollowUp = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -328,22 +335,26 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
   return (
     <div className="flex h-screen bg-background">
       <aside className="w-[350px] flex-shrink-0 border-r border-border p-4 flex flex-col gap-4">
-        <h1 className="text-2xl font-bold font-headline">ProfitScout</h1>
-        <Card>
+        <h1 className="text-2xl font-bold font-headline mb-4">ProfitScout</h1>
+        
+        <Card className="flex-1 flex flex-col">
           <CardHeader>
-            <CardTitle className="font-headline">Controls</CardTitle>
+            <CardTitle className="font-headline flex items-center gap-2">
+                <Settings className="text-primary" />
+                Controls
+            </CardTitle>
             <CardDescription>Select analysis type and options</CardDescription>
           </CardHeader>
           <CardContent className="flex-grow flex flex-col gap-4">
             {renderControls()}
-            <Button onClick={getRecommendation} disabled={isLaunchAnalysisDisabled()} className="w-full mt-2">
+            <Button onClick={getRecommendation} disabled={isLaunchAnalysisDisabled()} className="w-full mt-auto">
               {isLoading && messages.length > 0 && selectedTickers.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Launch Analysis
             </Button>
           </CardContent>
         </Card>
         
-        <Card className="bg-card">
+        <Card className="flex-1 flex flex-col">
             <CardHeader>
                 <CardTitle className="font-headline flex items-center gap-2">
                     <Sparkles className="text-primary" />
@@ -351,28 +362,35 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
                 </CardTitle>
                 <CardDescription>Let our AI find the best stock for you right now.</CardDescription>
             </CardHeader>
-            <CardContent>
-                <Button onClick={getAITopPick} disabled={isLoading} className="w-full">
+            <CardContent className="flex-grow flex flex-col">
+                <Button onClick={getAITopPick} disabled={isLoading} className="w-full mt-auto">
                     {isLoading && selectedTickers.length === 0 && messages.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Get AI Top Pick
                 </Button>
             </CardContent>
         </Card>
 
-        <div className="p-4 border-t border-border mt-auto">
-            <div className="space-y-2">
-            <label className="text-sm font-medium">Feedback</label>
-            <Textarea
-                placeholder="Tell us what you think..."
-                value={feedbackText}
-                onChange={(e) => setFeedbackText(e.target.value)}
-                rows={3}
-            />
-            <Button onClick={submitFeedback} variant="secondary" className="w-full" disabled={!feedbackText.trim()}>
-                Submit Feedback
-            </Button>
-            </div>
-        </div>
+        <Card className="flex-1 flex flex-col">
+            <CardHeader>
+                <CardTitle className="font-headline flex items-center gap-2">
+                    <MessageSquare className="text-primary" />
+                    Feedback
+                </CardTitle>
+                 <CardDescription>Help us improve ProfitScout!</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col gap-4">
+                <Textarea
+                    placeholder="Tell us what you think..."
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    rows={3}
+                    className="flex-grow"
+                />
+                <Button onClick={submitFeedback} className="w-full" disabled={!feedbackText.trim()}>
+                    Submit Feedback
+                </Button>
+            </CardContent>
+        </Card>
       </aside>
       <main className="flex-1 flex flex-col p-4">
          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow flex flex-col">
