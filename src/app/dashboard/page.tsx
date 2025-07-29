@@ -15,6 +15,10 @@ import { MultiSelect, type Option } from '@/components/multi-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import {
+  type InitialRecommendationOutput
+} from '@/ai/flows/initial-recommendation';
+
 
 type Message = {
   role: 'user' | 'assistant' | 'system';
@@ -42,7 +46,7 @@ export default function DashboardPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingStocks, setIsFetchingStocks] = useState(true);
-  const [initialRecommendation, setInitialRecommendation] = useState('');
+  const [initialRecommendation, setInitialRecommendation] = useState<InitialRecommendationOutput | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [activeTab, setActiveTab] = useState('stock-analysis');
 
@@ -93,8 +97,19 @@ export default function DashboardPage() {
 
     const result = await handleGetRecommendation(uris);
     
-    setInitialRecommendation(result.recommendation);
-    setMessages([{ role: 'assistant', content: result.recommendation }]);
+    setInitialRecommendation(result);
+    
+    const recommendationText = `
+    **Recommendation:** ${result.recommendation}
+
+    **Reasoning:**
+    ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
+
+    **Key Sections Overview:**
+    ${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
+  `;
+
+    setMessages([{ role: 'assistant', content: recommendationText.trim() }]);
     setIsLoading(false);
   };
   
@@ -108,8 +123,18 @@ export default function DashboardPage() {
     // Pass an empty array to indicate it's an AI Top Pick request
     const result = await handleGetRecommendation([]);
 
-    setInitialRecommendation(result.recommendation);
-    setMessages([{ role: 'assistant', content: result.recommendation }]);
+    setInitialRecommendation(result);
+
+    const recommendationText = `
+    **Recommendation:** ${result.recommendation}
+
+    **Reasoning:**
+    ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
+
+    **Key Sections Overview:**
+    ${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
+  `;
+    setMessages([{ role: 'assistant', content: recommendationText.trim() }]);
     setIsLoading(false);
   }
 
@@ -117,7 +142,7 @@ export default function DashboardPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const question = formData.get('question') as string;
-    if (!question || isLoading) return;
+    if (!question || isLoading || !initialRecommendation) return;
 
     event.currentTarget.reset();
 
@@ -132,12 +157,21 @@ export default function DashboardPage() {
       role: m.role === 'user' ? 'user' : 'assistant',
       content: typeof m.content === 'string' ? m.content : '...',
     }));
+
+    const initialRecommendationText = `
+    **Recommendation:** ${initialRecommendation.recommendation}
+
+    **Reasoning:**
+    ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
+
+    **Key Sections Overview:**
+    ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).join('\n')}
+  `;
     
     const result = await handleFollowUp({
       question,
-      // We are not passing tickers correctly here, needs to be fixed if we want to support it
-      tickers: [], // selectedTickers.map(t => t.label.split(' - ')[0]),
-      initialRecommendation,
+      tickers: selectedTickers.map(t => t.label.split(' - ')[0]),
+      initialRecommendation: initialRecommendationText.trim(),
       chatHistory,
     });
 
@@ -368,9 +402,9 @@ export default function DashboardPage() {
                 name="question"
                 placeholder="Ask a follow-up question..."
                 className="flex-1"
-                disabled={isLoading || messages.length === 0 || initialRecommendation === ''}
+                disabled={isLoading || messages.length === 0 || initialRecommendation === null}
               />
-              <Button type="submit" disabled={isLoading || messages.length === 0 || initialRecommendation === ''} size="icon" aria-label="Send message">
+              <Button type="submit" disabled={isLoading || messages.length === 0 || initialRecommendation === null} size="icon" aria-label="Send message">
                 {isLoading && messages.length > 1 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </form>
@@ -388,3 +422,5 @@ const MessageSkeleton = () => (
     <Skeleton className="h-4 w-[220px]" />
   </div>
 );
+
+    
