@@ -42,5 +42,3 @@ export async function handleFeedback(feedbackText: string): Promise<void> {
   const summaryOutput = await summarizeFeedback(input);
   await saveFeedback(feedbackText, summaryOutput.summary);
 }
-
-    

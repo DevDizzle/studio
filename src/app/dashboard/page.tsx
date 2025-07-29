@@ -96,6 +96,11 @@ export default function DashboardPage() {
     
     if (activeTab === 'stock-analysis') {
       input.uris = selectedTickers.map(t => t.value);
+      if (selectedTickers.length === 1) {
+          const [ticker, companyName] = selectedTickers[0].label.split(' - ');
+          input.ticker = ticker;
+          input.companyName = companyName;
+      }
     } else if (activeTab === 'sector-analysis') {
       input.sector = selectedSector;
     } else if (activeTab === 'industry-analysis') {

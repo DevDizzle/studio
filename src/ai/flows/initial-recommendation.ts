@@ -20,6 +20,8 @@ const InitialRecommendationInputSchema = z.object({
       'An array of 0, 1, 2 or up to 10 GCS URIs for stock data bundles. If 0, the AI should pick one.'
     ),
   sector: z.string().optional().describe('The sector or industry to analyze.'),
+  ticker: z.string().optional().describe('The stock ticker.'),
+  companyName: z.string().optional().describe('The name of the company.'),
 });
 export type InitialRecommendationInput = z.infer<
   typeof InitialRecommendationInputSchema
@@ -218,8 +220,8 @@ Aggregate positives (growth drivers, technical strength) vs. negatives
 ######################## DISPLAY SPEC ########################
 Return ≤ 500 words:
 
-**Ticker**: <TICKER from the data bundle>
-**Company**: <COMPANY_NAME from the data bundle>
+**Ticker**: {{ticker}}
+**Company**: {{companyName}}
 
 **Recommendation**: <BOLD BUY / HOLD / SELL> – single-sentence headline.
 **Brief Reasoning**: 3–5 bullets on decisive factors.
