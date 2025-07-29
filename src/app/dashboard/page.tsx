@@ -92,15 +92,21 @@ export default function DashboardPage() {
     setIsSheetOpen(false);
     setMessages([]);
     
-    let input: InitialRecommendationInput = { uris: [] };
+    let ticker: string | undefined;
+    let companyName: string | undefined;
+    
+    if (activeTab === 'stock-analysis' && selectedTickers.length === 1) {
+        [ticker, companyName] = selectedTickers[0].label.split(' - ');
+    }
+    
+    let input: InitialRecommendationInput = { 
+        uris: [],
+        ticker: ticker,
+        companyName: companyName,
+    };
     
     if (activeTab === 'stock-analysis') {
       input.uris = selectedTickers.map(t => t.value);
-      if (selectedTickers.length === 1) {
-          const [ticker, companyName] = selectedTickers[0].label.split(' - ');
-          input.ticker = ticker;
-          input.companyName = companyName;
-      }
     } else if (activeTab === 'sector-analysis') {
       input.sector = selectedSector;
     } else if (activeTab === 'industry-analysis') {
@@ -116,26 +122,27 @@ export default function DashboardPage() {
 
       let recommendationText = result.recommendation;
 
-      if (activeTab === 'stock-analysis' && selectedTickers.length === 1 && input.ticker && input.companyName) {
-        const parts = result.recommendation.split('–');
-        if (parts.length > 1) {
-            const recAndSummary = parts[0].trim();
-            const summary = (parts.slice(1).join('–') || '').trim();
-
-            const firstPeriodIndex = recAndSummary.indexOf('.');
-            if (firstPeriodIndex > -1) {
-                const rec = recAndSummary.substring(0, firstPeriodIndex + 1);
-                const firstSummaryPart = recAndSummary.substring(firstPeriodIndex + 1).trim();
-                recommendationText = `**${rec}** ${firstSummaryPart} – ${summary}`;
-            } else {
-                 recommendationText = `**${recAndSummary}** – ${summary}`;
-            }
+      if (activeTab === 'stock-analysis' && selectedTickers.length === 1 && ticker && companyName) {
+        const firstWordMatch = recommendationText.match(/^\w+/);
+        if (firstWordMatch) {
+            const recommendation = firstWordMatch[0];
+            const restOfSentence = recommendationText.substring(recommendation.length);
+            recommendationText = `**${recommendation}**${restOfSentence}`;
         }
+        recommendationText = `${recommendationText} - **${ticker}** - **${companyName}**`;
       } else if (activeTab === 'stock-analysis' && selectedTickers.length === 0) { // AI Top Pick
         const parts = result.recommendation.split('–');
         const tickerAndName = (parts.shift() || '').replace('AI Top Pick:', '').trim();
         const summary = (parts.join('–') || '').trim();
         recommendationText = `**AI Top Pick: ${tickerAndName}** – ${summary}`;
+      } else if (activeTab === 'stock-analysis' && selectedTickers.length > 1) {
+          // Logic for comparing two stocks, can be enhanced
+          const firstWordMatch = recommendationText.match(/^\w+/);
+          if (firstWordMatch) {
+              const recommendation = firstWordMatch[0];
+              const restOfSentence = recommendationText.substring(recommendation.length);
+              recommendationText = `**${recommendation}**${restOfSentence}`;
+          }
       }
 
       const fullMessage = `
@@ -395,7 +402,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
                     AI Top Pick
                 </CardTitle>
                 <CardDescription>Let our AI find the best stock for you right now.</CardDescription>
-            </CardHeader>
+            </Header>
             <CardContent className="flex-grow flex flex-col">
                 <Button onClick={getAITopPick} disabled={isLoading} className="w-full mt-auto">
                     {isLoading && selectedTickers.length === 0 && messages.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -411,7 +418,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
                     Feedback
                 </CardTitle>
                  <CardDescription>Help us improve ProfitScout!</CardDescription>
-            </CardHeader>
+            </Header>
             <CardContent className="flex-grow flex flex-col gap-4">
                 <Textarea
                     placeholder="Tell us what you think..."
@@ -428,7 +435,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
             </CardContent>
         </Card>
       </div>
-  )
+  );
 
   return (
     <div className="flex h-screen bg-background">
