@@ -220,10 +220,7 @@ Aggregate positives (growth drivers, technical strength) vs. negatives
 ######################## DISPLAY SPEC ########################
 Return ≤ 500 words:
 
-**Ticker**: {{ticker}}
-**Company**: {{companyName}}
-
-**Recommendation**: <BOLD BUY / HOLD / SELL> – single-sentence headline.
+**Recommendation**: <BOLD BUY / HOLD / SELL> - {{ticker}} - {{companyName}} – single-sentence headline.
 **Brief Reasoning**: 3–5 bullets on decisive factors.
 **Section Snapshots**: one-sentence highlight for each of the 5 sections above.
 
