@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Building2, GitCompareArrows, LineChart, Loader2, PieChart, Send, User, Sparkles } from 'lucide-react';
+import { Bot, Building2, GitCompareArrows, Loader2, PieChart, Send, User, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,6 +51,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchStocks() {
+      setIsFetchingStocks(true);
       try {
         const stocks = await getStocks();
         const options = stocks.map((stock: Stock) => ({
@@ -61,8 +62,8 @@ export default function DashboardPage() {
       } catch (error) {
         console.error("Failed to fetch stocks:", error);
         toast({
-            title: "Error",
-            description: "Could not load stock data. Please try again later.",
+            title: "Error fetching stocks",
+            description: "Could not load stock data. Please check your Firebase configuration and security rules.",
             variant: "destructive"
         })
       } finally {
