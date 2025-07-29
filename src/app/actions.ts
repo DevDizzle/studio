@@ -18,7 +18,20 @@ import {
 
 export async function handleGetRecommendation(uris: string[]): Promise<InitialRecommendationOutput> {
   const input: InitialRecommendationInput = { uris };
-  return await getInitialRecommendation(input);
+  const result: any = await getInitialRecommendation(input);
+  
+  // Combine the structured response into a single string for display
+  const recommendationText = `
+    **Recommendation:** ${result.recommendation}
+
+    **Reasoning:**
+    ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
+
+    **Key Sections Overview:**
+    ${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
+  `;
+  
+  return { recommendation: recommendationText.trim(), reasoning: [], sections_overview: [] };
 }
 
 export async function handleFollowUp(data: {

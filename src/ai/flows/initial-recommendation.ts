@@ -27,7 +27,17 @@ const InitialRecommendationOutputSchema = z.object({
   recommendation: z
     .string()
     .describe(
-      'A buy/hold/sell recommendation for the selected stock(s), along with a brief justification.'
+      'The recommendation (BUY, HOLD, or SELL) and a 1-sentence summary.'
+    ),
+  reasoning: z
+    .array(z.string())
+    .describe(
+      'An array of 3-5 bullet points for the reasoning behind the recommendation.'
+    ),
+  sections_overview: z
+    .array(z.string())
+    .describe(
+      'An array of 4-6 brief overviews of major analysis sections.'
     ),
 });
 export type InitialRecommendationOutput = z.infer<
@@ -36,7 +46,7 @@ export type InitialRecommendationOutput = z.infer<
 
 export async function getInitialRecommendation(
   input: InitialRecommendationInput
-): Promise<InitialRecommendationOutput> {
+): Promise<any> {
   return initialRecommendationFlow(input);
 }
 

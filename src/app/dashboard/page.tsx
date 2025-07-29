@@ -185,21 +185,28 @@ export default function DashboardPage() {
   }
 
   const renderControls = () => {
+    if (isFetchingStocks) {
+      return (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
+          <Skeleton className="h-10 w-full" />
+        </div>
+      );
+    }
+    
     switch(activeTab) {
       case 'stock-analysis':
         return (
           <div className="space-y-2">
             <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
-            {isFetchingStocks ? <Skeleton className="h-10 w-full" /> : (
-              <MultiSelect
-                options={stockOptions}
-                selected={selectedTickers}
-                onChange={handleTickerSelection}
-                className="w-full"
-                placeholder="Select up to 2 stocks..."
-                max={2}
-              />
-            )}
+            <MultiSelect
+              options={stockOptions}
+              selected={selectedTickers}
+              onChange={handleTickerSelection}
+              className="w-full"
+              placeholder="Select up to 2 stocks..."
+              max={2}
+            />
           </div>
         );
       case 'sector-analysis':
@@ -344,7 +351,7 @@ export default function DashboardPage() {
                         : 'bg-card'
                     }`}
                   >
-                    <div className="prose prose-invert text-sm break-words">{message.content}</div>
+                    <div className="prose prose-invert text-sm break-words whitespace-pre-wrap">{message.content}</div>
                   </div>
                   {message.role === 'user' && (
                      <div className="bg-secondary rounded-full p-2">
