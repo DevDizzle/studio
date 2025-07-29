@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, collection, getDocs } from "firebase/firestore";
+import { getFirestore, collection, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 import { z } from 'zod';
 
 // Your web app's Firebase configuration
@@ -55,4 +55,17 @@ export async function getRandomStocks(count: number): Promise<Stock[]> {
     }
 
     return allStocks.slice(0, count);
+}
+
+export async function saveFeedback(originalFeedback: string, summary: string): Promise<void> {
+  try {
+    await addDoc(collection(db, "feedback"), {
+      originalFeedback,
+      summary,
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Error writing feedback to Firestore: ", error);
+    throw new Error("Could not save feedback to the database.");
+  }
 }

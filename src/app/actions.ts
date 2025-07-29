@@ -13,8 +13,8 @@ import {
 import {
   summarizeFeedback,
   type SummarizeFeedbackInput,
-  type SummarizeFeedbackOutput,
 } from '@/ai/flows/feedback-summarization';
+import { saveFeedback } from '@/lib/firebase';
 
 export async function handleGetRecommendation(input: InitialRecommendationInput): Promise<InitialRecommendationOutput> {
   const result: InitialRecommendationOutput = await getInitialRecommendation(input);
@@ -37,9 +37,10 @@ export async function handleFollowUp(data: {
   return await answerFollowUpQuestion(input);
 }
 
-export async function handleFeedback(feedbackText: string): Promise<SummarizeFeedbackOutput> {
+export async function handleFeedback(feedbackText: string): Promise<void> {
   const input: SummarizeFeedbackInput = { feedbackText };
-  return await summarizeFeedback(input);
+  const summaryOutput = await summarizeFeedback(input);
+  await saveFeedback(feedbackText, summaryOutput.summary);
 }
 
     
