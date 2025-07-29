@@ -238,6 +238,16 @@ Use real-time data if needed via tools (e.g., current stock price, recent news).
 {{/if}}`;
 
 
+const initialRecommendationPrompt = ai.definePrompt(
+  {
+    name: 'initialRecommendationPrompt',
+    input: { schema: InitialRecommendationInputSchema },
+    output: { schema: InitialRecommendationOutputSchema },
+    prompt: PROMPT_TEMPLATE,
+    tools: [getStockPrice],
+  },
+);
+
 const initialRecommendationFlow = ai.defineFlow(
   {
     name: 'initialRecommendationFlow',
@@ -245,19 +255,7 @@ const initialRecommendationFlow = ai.defineFlow(
     outputSchema: InitialRecommendationOutputSchema,
   },
   async (input) => {
-    const { output } = await ai.generate({
-      prompt: {
-        template: PROMPT_TEMPLATE,
-        input: {
-          uris: input.uris,
-          sector: input.sector,
-        }
-      },
-      output: {
-        schema: InitialRecommendationOutputSchema,
-      },
-      tools: [getStockPrice],
-    });
+    const { output } = await initialRecommendationPrompt(input);
     return output!;
   }
 );
