@@ -16,8 +16,7 @@ import {
   type SummarizeFeedbackOutput,
 } from '@/ai/flows/feedback-summarization';
 
-export async function handleGetRecommendation(uris: string[]): Promise<InitialRecommendationOutput> {
-  const input: InitialRecommendationInput = { uris };
+export async function handleGetRecommendation(input: InitialRecommendationInput): Promise<InitialRecommendationOutput> {
   const result: InitialRecommendationOutput = await getInitialRecommendation(input);
   return result;
 }

@@ -19,6 +19,7 @@ const InitialRecommendationInputSchema = z.object({
     .describe(
       'An array of 0, 1 or 2 GCS URIs for stock data bundles. If 0, the AI should pick one.'
     ),
+  sector: z.string().optional().describe('The sector or industry to analyze.'),
 });
 export type InitialRecommendationInput = z.infer<
   typeof InitialRecommendationInputSchema
@@ -68,8 +69,23 @@ const getStockPrice = ai.defineTool(
   }
 );
 
-const PROMPT_TEMPLATE = `{{#if uris.length}}
-  {{#if uris.[1]}}
+const PROMPT_TEMPLATE = `{{#if sector}}
+You are a financial advisor providing investment recommendations.
+
+Provide a concise buy/hold/sell recommendation for the sector or industry based on aggregated data from key stocks or trends. Structure your response as follows:
+
+1. **Recommendation**: State BUY, HOLD, or SELL for the sector/industry upfront in bold, with a 1-sentence summary of the key rationale.
+
+2. **Brief Reasoning**: 3-5 bullet points highlighting the most impactful factors (e.g., sector growth, risks like regulations, market trends).
+
+3. **Key Sections Overview**: Briefly list 4-6 major analysis sections (e.g., Sector Profile, Key Stocks Summary, MD&A Trends, Price Trends, Technicals, Financials/Ratios) with 1-sentence overviews each. End by noting users can ask for deeper details on any section or specific stocks.
+
+Use real-time data if needed via tools (e.g., sector indices, recent news). Keep the entire response under 500 words for quick readability. Encourage follow-up questions for more depth.
+
+Sector/Industry: {{sector}}
+{{else}}
+  {{#if uris.length}}
+    {{#if uris.[1]}}
 You are a financial advisor providing investment recommendations.
 
 Provide concise buy/hold/sell recommendations for each of the two stocks based on the provided data bundles, including a comparative analysis. Structure your response as follows:
@@ -83,7 +99,7 @@ Provide concise buy/hold/sell recommendations for each of the two stocks based o
 Use real-time data if needed via tools (e.g., current stock prices, recent news). Keep the entire response under 500 words for quick readability. Encourage follow-up questions for more depth.
 
 Stock URIs: {{uris.[0]}} and {{uris.[1]}}
-  {{else}}
+    {{else}}
 You are a financial advisor providing investment recommendations.
 
 Provide a concise buy/hold/sell recommendation for the stock based on the provided data bundle. Structure your response as follows:
@@ -97,9 +113,20 @@ Provide a concise buy/hold/sell recommendation for the stock based on the provid
 Use real-time data if needed via tools (e.g., current stock price, recent news). Keep the entire response under 500 words for quick readability. Encourage follow-up questions for more depth.
 
 Stock URI: {{uris.[0]}}
+    {{/if}}
+  {{else}}
+You are a financial advisor providing investment recommendations.
+
+You are in "AI Top Pick" mode. Pick a single promising stock from a well-known company, provide a concise buy/hold/sell recommendation for it based on real-time data, and justify your choice. Structure your response as follows:
+
+1. **Recommendation**: State BUY, HOLD, or SELL upfront in bold, with a 1-sentence summary of why it's your top pick.
+
+2. **Brief Reasoning**: 3-5 bullet points highlighting the most impactful factors (e.g., earnings growth, market trends, risks).
+
+3. **Key Sections Overview**: Briefly list 4-6 major analysis sections (e.g., Business Profile, Earnings Summary, MD&A, Price Trends, Technicals, Financials/Ratios) with 1-sentence overviews each. End by noting users can ask for deeper details on any section.
+
+Use real-time data if needed via tools (e.g., current stock price, recent news). Keep the entire response under 500 words for quick readability. Encourage follow-up questions for more depth.
   {{/if}}
-{{else}}
-  You are in "AI Top Pick" mode. Pick a single promising stock from a well-known company, provide a recommendation for it, and justify your choice.
 {{/if}}`;
 
 const initialRecommendationPrompt = ai.definePrompt({

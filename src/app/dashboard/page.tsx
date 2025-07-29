@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import {
+  type InitialRecommendationInput,
   type InitialRecommendationOutput
 } from '@/ai/flows/initial-recommendation';
 
@@ -87,15 +88,20 @@ export default function DashboardPage() {
     setIsLoading(true);
     setMessages([]);
     
-    let uris: string[] = [];
-    if(activeTab === 'stock-analysis') {
-        uris = selectedTickers.map(t => t.value);
+    let input: InitialRecommendationInput = { uris: [] };
+    
+    if (activeTab === 'stock-analysis') {
+      input.uris = selectedTickers.map(t => t.value);
+    } else if (activeTab === 'sector-analysis') {
+      input.sector = selectedSector;
+    } else if (activeTab === 'industry-analysis') {
+      input.sector = selectedIndustry;
     }
     
     // Optimistically show a loading skeleton
     setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
-    const result = await handleGetRecommendation(uris);
+    const result = await handleGetRecommendation(input);
     
     setInitialRecommendation(result);
     
@@ -121,7 +127,7 @@ export default function DashboardPage() {
     setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
     // Pass an empty array to indicate it's an AI Top Pick request
-    const result = await handleGetRecommendation([]);
+    const result = await handleGetRecommendation({ uris: [] });
 
     setInitialRecommendation(result);
 
@@ -253,7 +259,7 @@ export default function DashboardPage() {
               </SelectTrigger>
               <SelectContent>
                 {SECTORS.map(sector => (
-                    <SelectItem key={sector.value} value={sector.value}>
+                    <SelectItem key={sector.value} value={sector.label}>
                         {sector.label}
                     </SelectItem>
                 ))}
@@ -271,7 +277,7 @@ export default function DashboardPage() {
               </SelectTrigger>
               <SelectContent>
                 {INDUSTRIES.map(industry => (
-                    <SelectItem key={industry.value} value={industry.value}>
+                    <SelectItem key={industry.value} value={industry.label}>
                         {industry.label}
                     </SelectItem>
                 ))}
