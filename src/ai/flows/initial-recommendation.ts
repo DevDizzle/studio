@@ -91,7 +91,9 @@ const initialRecommendationFlow = ai.defineFlow(
     outputSchema: InitialRecommendationOutputSchema,
   },
   async input => {
-    const {output} = await initialRecommendationPrompt(input);
-    return output!;
+    // This will now return the prompt text for debugging.
+    const template = Handlebars.compile(PROMPT_TEMPLATE);
+    const promptText = template(input);
+    return { recommendation: `DEBUG: PROMPT ---------------- ${promptText}` };
   }
 );
