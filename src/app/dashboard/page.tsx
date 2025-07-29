@@ -52,6 +52,7 @@ export default function DashboardPage() {
   const [initialRecommendation, setInitialRecommendation] = useState<InitialRecommendationOutput | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [activeTab, setActiveTab] = useState('stock-analysis');
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -88,6 +89,7 @@ export default function DashboardPage() {
     if (isLaunchAnalysisDisabled()) return;
 
     setIsLoading(true);
+    setIsSheetOpen(false);
     setMessages([]);
     
     let input: InitialRecommendationInput = { uris: [] };
@@ -133,6 +135,7 @@ ${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
   
   const getAITopPick = async () => {
       setIsLoading(true);
+      setIsSheetOpen(false);
       setMessages([]);
       setSelectedTickers([]);
 
@@ -230,6 +233,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
     if (!feedbackText.trim()) return;
     await handleFeedback(feedbackText);
     setFeedbackText('');
+    setIsSheetOpen(false);
     toast({
       title: 'Feedback Submitted',
       description: 'Thank you for helping us improve ProfitScout!',
@@ -400,7 +404,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
       </aside>
       <main className="flex-1 flex flex-col p-4">
          <header className="flex items-center justify-between md:hidden border-b border-border pb-4 mb-4">
-           <Sheet>
+           <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon">
                 <Menu className="h-6 w-6" />
@@ -441,7 +445,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
                   <Bot className="h-12 w-12 text-primary" />
                 </div>
                 <h2 className="text-xl font-semibold text-foreground">Welcome to ProfitScout</h2>
-                <p className="max-w-md mt-2">To get started, select an analysis type from the controls on the left and launch your analysis.</p>
+                <p className="max-w-md mt-2">To get started, configure your analysis in the controls panel and launch your analysis.</p>
             </div>
         )
     }
