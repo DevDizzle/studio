@@ -91,20 +91,20 @@ export default function DashboardPage() {
     setIsLoading(true);
     setIsSheetOpen(false);
     setMessages([]);
-    
+
     let ticker: string | undefined;
     let companyName: string | undefined;
-    
+
     if (activeTab === 'stock-analysis' && selectedTickers.length === 1) {
-        [ticker, companyName] = selectedTickers[0].label.split(' - ');
+      [ticker, companyName] = selectedTickers[0].label.split(' - ');
     }
-    
-    let input: InitialRecommendationInput = { 
-        uris: [],
-        ticker: ticker,
-        companyName: companyName,
+
+    let input: InitialRecommendationInput = {
+      uris: [],
+      ticker: ticker,
+      companyName: companyName,
     };
-    
+
     if (activeTab === 'stock-analysis') {
       input.uris = selectedTickers.map(t => t.value);
     } else if (activeTab === 'sector-analysis') {
@@ -112,8 +112,7 @@ export default function DashboardPage() {
     } else if (activeTab === 'industry-analysis') {
       input.sector = selectedIndustry;
     }
-    
-    // Optimistically show a loading skeleton
+
     setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
     try {
@@ -127,16 +126,14 @@ export default function DashboardPage() {
         if (firstWordMatch) {
             const recommendation = firstWordMatch[0];
             const restOfSentence = recommendationText.substring(recommendation.length);
-            recommendationText = `**${recommendation}**${restOfSentence}`;
+            recommendationText = `**${recommendation}** - **${ticker}** - **${companyName}**${restOfSentence}`;
         }
-        recommendationText = `${recommendationText} - **${ticker}** - **${companyName}**`;
       } else if (activeTab === 'stock-analysis' && selectedTickers.length === 0) { // AI Top Pick
         const parts = result.recommendation.split('–');
         const tickerAndName = (parts.shift() || '').replace('AI Top Pick:', '').trim();
         const summary = (parts.join('–') || '').trim();
         recommendationText = `**AI Top Pick: ${tickerAndName}** – ${summary}`;
       } else if (activeTab === 'stock-analysis' && selectedTickers.length > 1) {
-          // Logic for comparing two stocks, can be enhanced
           const firstWordMatch = recommendationText.match(/^\w+/);
           if (firstWordMatch) {
               const recommendation = firstWordMatch[0];
@@ -144,7 +141,7 @@ export default function DashboardPage() {
               recommendationText = `**${recommendation}**${restOfSentence}`;
           }
       }
-
+      
       const fullMessage = `
 **Recommendation:** ${recommendationText}
 
@@ -402,7 +399,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
                     AI Top Pick
                 </CardTitle>
                 <CardDescription>Let our AI find the best stock for you right now.</CardDescription>
-            </Header>
+            </CardHeader>
             <CardContent className="flex-grow flex flex-col">
                 <Button onClick={getAITopPick} disabled={isLoading} className="w-full mt-auto">
                     {isLoading && selectedTickers.length === 0 && messages.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -418,7 +415,7 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
                     Feedback
                 </CardTitle>
                  <CardDescription>Help us improve ProfitScout!</CardDescription>
-            </Header>
+            </CardHeader>
             <CardContent className="flex-grow flex flex-col gap-4">
                 <Textarea
                     placeholder="Tell us what you think..."
@@ -549,3 +546,5 @@ const MessageSkeleton = () => (
     <Skeleton className="h-4 w-[220px]" />
   </div>
 );
+
+    
