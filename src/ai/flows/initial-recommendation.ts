@@ -118,21 +118,21 @@ No external calls are allowed; reason strictly from these objects.
 <!-- internal: ANALYTIC TASKS ----------------------------------------------->
 Produce **five** short analytic paragraphs:
 
-1. **Business Profile** – Core operations, products, geographic mix, moat.  
-2. **Earnings Summary** – Latest quarter revenue, EPS, margins; YoY/QoQ growth & guidance.  
-3. **MD&A Highlights** – Key opportunities and risks (macro, tariffs, liquidity, margins).  
+1. **Business Profile** – Core operations, products, geographic mix, moat. If data is missing/incomplete (e.g., specific products not listed), state 'Not detailed in the provided bundle' and do not speculate.  
+2. **Earnings Summary** – Latest quarter revenue, EPS, margins; YoY/QoQ growth & guidance. If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.  
+3. **MD&A Highlights** – Key opportunities and risks (macro, tariffs, liquidity, margins). If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.  
 4. **Technical Indicators** – Use \`technicals_timeseries\`  
    \`\`\`python
    trend_pct = (tech.iloc[-1]["close"] / tech.iloc[0]["close"] - 1) * 100
    bias = "bullish" if tech.iloc[-1]["SMA_20"] > tech.iloc[-1]["SMA_50"] else "bearish"
    rsi = tech.iloc[-1]["RSI_14"]
    \`\`\`
-   Summarise 90-day %-change, bias, RSI14.
+   Summarise 90-day %-change, bias, RSI14. If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.
 5. Financial Ratios & Key Metrics – Parse ratios/key_metrics; report items like
 Valuation: P/E, P/S, EV/EBITDA
 Profitability: Gross & operating margin, ROE/ROIC
 Leverage/Liquidity: Debt-to-equity, current ratio
-Highlight trend vs. prior quarter(s) where data exists.
+Highlight trend vs. prior quarter(s) where data exists. If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.
 Aggregate positives (growth drivers, technical strength) vs. negatives
 (risks, expensive valuation, leverage) to reach an overall stance.
 
