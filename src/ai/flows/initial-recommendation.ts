@@ -182,12 +182,13 @@ recommendations on any Russell 1000 company.
 
 <!-- internal: DATA INGESTION (JSON-only) ----------------------------------->
 A single JSON bundle is always provided. It contains (at minimum):
-
-- \`earnings_call_summary\`   – condensed transcript  
-- \`sec_mda\`                 – full MD&A text  
-- \`prices\`                  – last-90-day OHLC array  
-- \`technicals\`              – pre-computed indicator time-series  
-- \`financial_statements\`    – quarterly reports  
+- \`ticker\`
+- \`company_name\`
+- \`earnings_call_summary\`   – condensed transcript
+- \`sec_mda\`                 – full MD&A text
+- \`prices\`                  – last-90-day OHLC array
+- \`technicals\`              – pre-computed indicator time-series
+- \`financial_statements\`    – quarterly reports
 - \`ratios\` **and / or** \`key_metrics\` – point-in-time valuation & efficiency data
 
 No external calls are allowed; reason strictly from these objects.
@@ -195,10 +196,10 @@ No external calls are allowed; reason strictly from these objects.
 <!-- internal: ANALYTIC TASKS ----------------------------------------------->
 Produce **five** short analytic paragraphs:
 
-1. **Business Profile** – Core operations, products, geographic mix, moat. If data is missing/incomplete (e.g., specific products not listed), state 'Not detailed in the provided bundle' and do not speculate.  
-2. **Earnings Summary** – Latest quarter revenue, EPS, margins; YoY/QoQ growth & guidance. If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.  
-3. **MD&A Highlights** – Key opportunities and risks (macro, tariffs, liquidity, margins). If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.  
-4. **Technical Indicators** – Use \`technicals_timeseries\`  
+1. **Business Profile** – Core operations, products, geographic mix, moat. If data is missing/incomplete (e.g., specific products not listed), state 'Not detailed in the provided bundle' and do not speculate.
+2. **Earnings Summary** – Latest quarter revenue, EPS, margins; YoY/QoQ growth & guidance. If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.
+3. **MD&A Highlights** – Key opportunities and risks (macro, tariffs, liquidity, margins). If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.
+4. **Technical Indicators** – Use \`technicals_timeseries\`
    \`\`\`python
    trend_pct = (tech.iloc[-1]["close"] / tech.iloc[0]["close"] - 1) * 100
    bias = "bullish" if tech.iloc[-1]["SMA_20"] > tech.iloc[-1]["SMA_50"] else "bearish"
@@ -216,6 +217,9 @@ Aggregate positives (growth drivers, technical strength) vs. negatives
 <!-- end internal ------------------------------------------------------------>
 ######################## DISPLAY SPEC ########################
 Return ≤ 500 words:
+
+Ticker: <TICKER from the data bundle>
+Company: <COMPANY_NAME from the data bundle>
 Recommendation: <BOLD BUY / HOLD / SELL> – single-sentence headline.
 Brief Reasoning: 3–5 bullets on decisive factors.
 Section Snapshots: one-sentence highlight for each of the 5 sections above.
