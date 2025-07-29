@@ -381,13 +381,13 @@ ${initialRecommendation.sections_overview.map((item: string) => `- ${item}`).joi
             <TabsTrigger value="sector-analysis"><PieChart className="mr-2" />Sector Analysis</TabsTrigger>
             <TabsTrigger value="industry-analysis"><Building2 className="mr-2" />Industry Analysis</TabsTrigger>
           </TabsList>
-          <TabsContent value="stock-analysis" className="flex-grow flex flex-col mt-4">
+          <TabsContent value="stock-analysis" className="flex flex-col mt-4">
             {renderChat()}
           </TabsContent>
-          <TabsContent value="sector-analysis" className="flex-grow flex flex-col mt-4">
+          <TabsContent value="sector-analysis" className="flex flex-col mt-4">
             {renderChat()}
           </TabsContent>
-          <TabsContent value="industry-analysis" className="flex-grow flex flex-col mt-4">
+          <TabsContent value="industry-analysis" className="flex flex-col mt-4">
             {renderChat()}
           </TabsContent>
         </Tabs>
