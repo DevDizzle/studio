@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { getStocks, getRandomStocks, type Stock } from '@/lib/firebase';
+import { getStocks, type Stock } from '@/lib/firebase';
 import { handleGetRecommendation, handleFollowUp, handleFeedback } from '../actions';
 import { MultiSelect, type Option } from '@/components/multi-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -93,13 +93,11 @@ export default function DashboardPage() {
     setMessages([]);
     
     let input: InitialRecommendationInput = { uris: [] };
-    let ticker: string | undefined;
-    let companyName: string | undefined;
     
     if (activeTab === 'stock-analysis') {
       input.uris = selectedTickers.map(t => t.value);
       if (selectedTickers.length === 1) {
-          [ticker, companyName] = selectedTickers[0].label.split(' - ');
+          const [ticker, companyName] = selectedTickers[0].label.split(' - ');
           input.ticker = ticker;
           input.companyName = companyName;
       }
@@ -118,15 +116,15 @@ export default function DashboardPage() {
 
       let recommendationText = `**Recommendation:** ${result.recommendation}`;
       
-      if (activeTab === 'stock-analysis' && selectedTickers.length === 1 && ticker && companyName) {
-        const parts = result.recommendation.split(' - ');
-        const rec = parts.shift() || '';
-        const summary = parts.join(' - ');
-        recommendationText = `**Recommendation:** **${rec.toUpperCase()} - ${ticker} - ${companyName}** – ${summary}`;
+      if (activeTab === 'stock-analysis' && selectedTickers.length === 1 && input.ticker && input.companyName) {
+        const parts = result.recommendation.split('–');
+        const rec = (parts.shift() || '').trim();
+        const summary = (parts.join('–') || '').trim();
+        recommendationText = `**Recommendation:** **${rec}** - **${input.ticker}** - **${input.companyName}** – ${summary}`;
       } else if (activeTab === 'stock-analysis' && selectedTickers.length === 0) { // AI Top Pick
-        const parts = result.recommendation.split(' - ');
-        const tickerAndName = (parts.shift() || '').replace('AI Top Pick: ', '');
-        const summary = parts.join(' - ');
+        const parts = result.recommendation.split('–');
+        const tickerAndName = (parts.shift() || '').replace('AI Top Pick:', '').trim();
+        const summary = (parts.join('–') || '').trim();
         recommendationText = `**Recommendation:** **AI Top Pick: ${tickerAndName}** – ${summary}`;
       }
       
@@ -163,7 +161,7 @@ ${result.sections_overview.map((item: string) => `- ${item}`).join('\n')}
       setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
       try {
-          const randomStocks = await getRandomStocks(10);
+          const randomStocks = await getStocks(); // Use all stocks
           if (randomStocks.length === 0) {
               throw new Error("No stocks available in the database.");
           }
