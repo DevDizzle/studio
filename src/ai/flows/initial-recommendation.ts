@@ -40,8 +40,9 @@ const InitialRecommendationOutputSchema = z.object({
     ),
   sections_overview: z
     .array(z.string())
+    .optional()
     .describe(
-      'An array of 4-6 brief overviews of major analysis sections.'
+      'An array of 4-6 brief overviews of major analysis sections. This is not used for single stock analysis.'
     ),
 });
 export type InitialRecommendationOutput = z.infer<
@@ -179,8 +180,7 @@ Use real-time data if needed via tools (e.g., current stock price, recent news).
 Stock URIs: {{uris.[0]}} and {{uris.[1]}}
       {{/if}}
     {{else}}
-You are a financial-analysis agent that issues concise BUY / HOLD / SELL
-recommendations on any Russell 1000 company.
+You are a financial-analysis agent that issues concise BUY / HOLD / SELL recommendations on any Russell 1000 company. Your analysis for {{ticker}} - {{companyName}} should be up to 750 words.
 
 <!-- internal: DATA INGESTION (JSON-only) ----------------------------------->
 A single JSON bundle is always provided. It contains (at minimum):
@@ -196,29 +196,23 @@ A single JSON bundle is always provided. It contains (at minimum):
 No external calls are allowed; reason strictly from these objects.
 
 <!-- internal: ANALYTIC TASKS ----------------------------------------------->
-Produce **five** short analytic paragraphs:
+Your primary goal is to synthesize the provided data into a clear, actionable investment recommendation. You must reference specific numbers and concrete examples from the data to support your reasoning. For example: "Revenue increased 12% year-over-year," or "The RSI is currently 74, indicating the stock may be overbought."
 
-1. **Business Profile** – Core operations, products, geographic mix, moat. If data is missing/incomplete (e.g., specific products not listed), state 'Not detailed in the provided bundle' and do not speculate.
-2. **Earnings Summary** – Latest quarter revenue, EPS, margins; YoY/QoQ growth & guidance. If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.
-3. **MD&A Highlights** – Key opportunities and risks (macro, tariffs, liquidity, margins). If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.
-4. **Technical Indicators** – Use \`technicals_timeseries\`
-   \`\`\`python
-   trend_pct = (tech.iloc[-1]["close"] / tech.iloc[0]["close"] - 1) * 100
-   bias = "bullish" if tech.iloc[-1]["SMA_20"] > tech.iloc[-1]["SMA_50"] else "bearish"
-   rsi = tech.iloc[-1]["RSI_14"]
-   \`\`\`
-   Summarise 90-day %-change, bias, RSI14. If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.
-5. Financial Ratios & Key Metrics – Parse ratios/key_metrics; report items like
-Valuation: P/E, P/S, EV/EBITDA
-Profitability: Gross & operating margin, ROE/ROIC
-Leverage/Liquidity: Debt-to-equity, current ratio
-Highlight trend vs. prior quarter(s) where data exists. If data is missing/incomplete, state 'Not detailed in the provided bundle' and do not speculate.
-Aggregate positives (growth drivers, technical strength) vs. negatives
-(risks, expensive valuation, leverage) to reach an overall stance.
+Your analysis must produce a "recommendation" and a "reasoning" section.
 
-Your analysis is for the company: {{ticker}} - {{companyName}}.
+1.  **Recommendation**: Start with "BUY", "HOLD", or "SELL" followed by a one-sentence summary of your core thesis. The entire line should be a single string. Example: "BUY - Strong revenue growth and expanding margins suggest significant upside potential."
+
+2.  **Reasoning**: Provide 3-5 bullet points that support your recommendation. Each bullet point should be a string and contain specific, data-backed insights.
+    *   **Business Profile & Moat**: Briefly describe the company's core business, products, and competitive advantages.
+    *   **Financial Health & Earnings**: Analyze trends in revenue, EPS, and margins. Use specific figures like "Operating margin expanded from 18% to 22%."
+    *   **Valuation**: Assess the stock's valuation using metrics like P/E, P/S, etc. Compare them to historical data if available.
+    *   **Technicals & Price Action**: Analyze the stock's price trend, moving averages, and key indicators like RSI. For example, "The stock is trading above its 50-day moving average, but the RSI of 74 suggests it is overbought."
+    *   **Risks & Catalysts**: Summarize key risks from the MD&A and potential positive catalysts from the earnings call summary.
 
 <!-- end internal ------------------------------------------------------------>
+
+End your entire analysis with the following sentence:
+"To learn more, ask a follow-up question about any of these sections: Earnings Call, MD&A, Technicals, Stock Price, Financials, Ratios, and Key Metrics."
     {{/if}}
   {{else}}
 You are a financial advisor providing investment recommendations.
@@ -243,6 +237,9 @@ const initialRecommendationPrompt = ai.definePrompt(
     output: { schema: InitialRecommendationOutputSchema },
     prompt: PROMPT_TEMPLATE,
     tools: [getStockPrice],
+    config: {
+      temperature: 0.7
+    }
   },
 );
 
