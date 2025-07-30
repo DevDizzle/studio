@@ -174,7 +174,7 @@ Use real-time data if needed via tools (e.g., current stock price, recent news).
 Stock URIs: {{uris.[0]}} and {{uris.[1]}}
       {{/if}}
     {{else}}
-You are a financial-analysis agent that issues concise BUY / HOLD / SELL recommendations on any Russell 1000 company. Your analysis for {{ticker}} - {{companyName}} should be up to 750 words.
+You are a financial-analysis agent that issues concise BUY / HOLD / SELL recommendations on any Russell 1000 company. Your analysis for {{ticker}} - {{companyName}} must be up to 750 words.
 
 <!-- internal: DATA INGESTION (JSON-only) ----------------------------------->
 A single JSON bundle is always provided. It contains (at minimum):
