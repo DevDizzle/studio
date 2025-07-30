@@ -38,12 +38,6 @@ const InitialRecommendationOutputSchema = z.object({
     .describe(
       'An array of 3-5 bullet points for the reasoning behind the recommendation.'
     ),
-  sections_overview: z
-    .array(z.string())
-    .optional()
-    .describe(
-      'An array of 4-6 brief overviews of major analysis sections. This is not used for single stock analysis.'
-    ),
 });
 export type InitialRecommendationOutput = z.infer<
   typeof InitialRecommendationOutputSchema
@@ -196,18 +190,18 @@ A single JSON bundle is always provided. It contains (at minimum):
 No external calls are allowed; reason strictly from these objects.
 
 <!-- internal: ANALYTIC TASKS ----------------------------------------------->
-Your primary goal is to synthesize the provided data into a clear, actionable investment recommendation. You must reference specific numbers and concrete examples from the data to support your reasoning. For example: "Revenue increased 12% year-over-year," or "The RSI is currently 74, indicating the stock may be overbought."
+Your primary goal is to synthesize the provided data into a clear, actionable investment recommendation. You **must** reference specific numbers and concrete examples from the data to support your reasoning. Vague statements are unacceptable. For example, instead of "revenue has grown," you **must** write "Revenue increased 12% year-over-year."
 
 Your analysis must produce a "recommendation" and a "reasoning" section.
 
-1.  **Recommendation**: Start with "BUY", "HOLD", or "SELL" followed by a one-sentence summary of your core thesis. The entire line should be a single string. Example: "BUY - Strong revenue growth and expanding margins suggest significant upside potential."
+1.  **Recommendation**: Start with "BUY", "HOLD", or "SELL" followed by a one-sentence summary of your core thesis. The entire line should be a single string. Example: "BUY - Strong revenue growth of 15% and expanding margins from 18% to 22% suggest significant upside potential."
 
-2.  **Reasoning**: Provide 3-5 bullet points that support your recommendation. Each bullet point should be a string and contain specific, data-backed insights.
-    *   **Business Profile & Moat**: Briefly describe the company's core business, products, and competitive advantages.
-    *   **Financial Health & Earnings**: Analyze trends in revenue, EPS, and margins. Use specific figures like "Operating margin expanded from 18% to 22%."
-    *   **Valuation**: Assess the stock's valuation using metrics like P/E, P/S, etc. Compare them to historical data if available.
-    *   **Technicals & Price Action**: Analyze the stock's price trend, moving averages, and key indicators like RSI. For example, "The stock is trading above its 50-day moving average, but the RSI of 74 suggests it is overbought."
-    *   **Risks & Catalysts**: Summarize key risks from the MD&A and potential positive catalysts from the earnings call summary.
+2.  **Reasoning**: Provide 3-5 bullet points that support your recommendation. Each bullet point must be a string and contain specific, data-backed insights.
+    *   **Business Profile & Moat**: Briefly describe the company's core business, products, and competitive advantages, citing information from the 'business_profile' field.
+    *   **Financial Health & Earnings**: Analyze trends in revenue, EPS, and margins. You **must** use specific figures like "Operating margin expanded from 18% to 22%."
+    *   **Valuation**: Assess the stock's valuation using metrics like P/E, P/S, etc. from the 'ratios' or 'key_metrics' objects. Compare them to historical data if available.
+    *   **Technicals & Price Action**: Analyze the stock's price trend, moving averages, and key indicators like RSI from the 'technicals' data. For example, "The stock is trading above its 50-day moving average, but the RSI of 74 suggests it is overbought."
+    *   **Risks & Catalysts**: Summarize key risks from the 'sec_mda' section and potential positive catalysts from the 'earnings_call_summary'.
 
 <!-- end internal ------------------------------------------------------------>
 
