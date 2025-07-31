@@ -111,13 +111,10 @@ const getStockDataBundle = ai.defineTool(
   async (input) => {
     console.log("getStockDataBundle called with uri: " + input.uri);
     
-    let path = input.uri;
     // The firebase storage SDK doesn't need the 'gs://' prefix.
-    // By storing the full path with bucket, we make this more robust.
-    if (path.startsWith('gs://')) {
-      path = path.substring('gs://'.length);
-    }
-    
+    // It needs the full path including the bucket name.
+    const path = input.uri.replace(/^gs:\/\//, '');
+
     const fileRef = ref(storage, path);
     const buffer = await getBytes(fileRef);
     const jsonString = new TextDecoder().decode(buffer);
