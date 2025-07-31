@@ -115,7 +115,9 @@ const getStockDataBundle = ai.defineTool(
     try {
         // First, try parsing as a full gs:// URL
         const url = new URL(input.uri);
-        path = url.pathname.substring(1);
+        // For gs://bucket/path/to/file.json, pathname will be /path/to/file.json
+        // We need to remove the leading slash for the ref() function.
+        path = url.pathname.substring(1); 
     } catch (e) {
         // If that fails, assume it might be a partial path like 'profit-scout/bundles/...'
         // or just 'bundles/...'
