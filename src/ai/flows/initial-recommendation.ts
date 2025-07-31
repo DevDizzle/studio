@@ -10,22 +10,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getStorage, ref, getBytes } from 'firebase/storage'; // Example imports; adjust as needed
+import { Storage } from '@google-cloud/storage';
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-};
-
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const storage = getStorage(app); // Initialize storage here
 
 const InitialRecommendationInputSchema = z.object({
   uris: z
@@ -99,6 +85,17 @@ const getStockPrice = ai.defineTool(
   }
 );
 
+/** Convert a gs:// URI into its bucket and object path parts. */
+function parseGcsUri(uri: string): { bucket: string; objectPath: string } {
+  if (!uri.startsWith('gs://')) {
+    throw new Error(`Invalid GCS URI: ${uri}`);
+  }
+  const [, , ...parts] = uri.split('/');
+  const bucket = parts.shift()!;       // first element after scheme is the bucket
+  const objectPath = parts.join('/');  // remaining elements form the object path
+  return { bucket, objectPath };
+}
+
 const getStockDataBundle = ai.defineTool(
   {
     name: 'getStockDataBundle',
@@ -110,15 +107,10 @@ const getStockDataBundle = ai.defineTool(
   },
   async (input) => {
     console.log("getStockDataBundle called with uri: " + input.uri);
-    
-    // The firebase storage SDK doesn't need the 'gs://' prefix.
-    // It needs the full path including the bucket name.
-    const path = input.uri.replace(/^gs:\/\//, '');
-
-    const fileRef = ref(storage, path);
-    const buffer = await getBytes(fileRef);
-    const jsonString = new TextDecoder().decode(buffer);
-    return JSON.parse(jsonString);
+    const { bucket, objectPath } = parseGcsUri(input.uri);
+    const storage = new Storage();
+    const [contents] = await storage.bucket(bucket).file(objectPath).download();
+    return JSON.parse(contents.toString());
   }
 );
 
