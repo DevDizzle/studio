@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Building2, GitCompareArrows, Loader2, MessageSquare, PieChart, Send, Settings, User, Sparkles, Menu } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Bot, Building2, GitCompareArrows, Loader2, MessageSquare, PieChart, Send, Settings, User, Sparkles, Menu, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,30 +56,31 @@ export default function DashboardPage() {
 
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  
+  const fetchStocks = useCallback(async () => {
+    setIsFetchingStocks(true);
+    try {
+      const stocks = await getStocks();
+      const options = stocks.map((stock: Stock) => ({
+        value: stock.bundle_gcs_path, // Pass GCS path as value
+        label: `${stock.id} - ${stock.company_name}`,
+      }));
+      setStockOptions(options);
+    } catch (error) {
+      console.error("Failed to fetch stocks:", error);
+      toast({
+          title: "Error fetching stocks",
+          description: "Could not load stock data. Please check your Firebase configuration and security rules.",
+          variant: "destructive"
+      })
+    } finally {
+      setIsFetchingStocks(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
-    async function fetchStocks() {
-      setIsFetchingStocks(true);
-      try {
-        const stocks = await getStocks();
-        const options = stocks.map((stock: Stock) => ({
-          value: stock.bundle_gcs_path, // Pass GCS path as value
-          label: `${stock.id} - ${stock.company_name}`,
-        }));
-        setStockOptions(options);
-      } catch (error) {
-        console.error("Failed to fetch stocks:", error);
-        toast({
-            title: "Error fetching stocks",
-            description: "Could not load stock data. Please check your Firebase configuration and security rules.",
-            variant: "destructive"
-        })
-      } finally {
-        setIsFetchingStocks(false);
-      }
-    }
     fetchStocks();
-  }, [toast]);
+  }, [fetchStocks]);
 
   const handleTickerSelection = (selected: Option[]) => {
     setSelectedTickers(selected);
@@ -120,27 +121,6 @@ export default function DashboardPage() {
       setInitialRecommendation(result);
 
       let recommendationText = result.recommendation;
-
-      if (activeTab === 'stock-analysis' && selectedTickers.length === 1 && ticker && companyName) {
-        const firstWordMatch = recommendationText.match(/^\w+/);
-        if (firstWordMatch) {
-            const recommendation = firstWordMatch[0];
-            const restOfSentence = recommendationText.substring(recommendation.length);
-            recommendationText = `**${recommendation}** - **${ticker}** - **${companyName}**${restOfSentence}`;
-        }
-      } else if (activeTab === 'stock-analysis' && selectedTickers.length === 0) { // AI Top Pick
-        const parts = result.recommendation.split('–');
-        const tickerAndName = (parts.shift() || '').replace('AI Top Pick:', '').trim();
-        const summary = (parts.join('–') || '').trim();
-        recommendationText = `**AI Top Pick: ${tickerAndName}** – ${summary}`;
-      } else if (activeTab === 'stock-analysis' && selectedTickers.length > 1) {
-          const firstWordMatch = recommendationText.match(/^\w+/);
-          if (firstWordMatch) {
-              const recommendation = firstWordMatch[0];
-              const restOfSentence = recommendationText.substring(recommendation.length);
-              recommendationText = `**${recommendation}**${restOfSentence}`;
-          }
-      }
       
       const fullMessage = `
 **Recommendation:** ${recommendationText}
@@ -297,7 +277,7 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
   }
 
   const renderAnalysisControls = () => {
-    if (isFetchingStocks) {
+    if (isFetchingStocks && stockOptions.length === 0) {
       return (
         <div className="space-y-2">
           <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
@@ -310,7 +290,12 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
       case 'stock-analysis':
         return (
           <div className="space-y-2">
-            <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
+              <Button variant="ghost" size="icon" onClick={fetchStocks} disabled={isFetchingStocks} aria-label="Refresh stocks">
+                <RefreshCw className={`h-4 w-4 ${isFetchingStocks ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
             <MultiSelect
               options={stockOptions}
               selected={selectedTickers}
@@ -537,5 +522,3 @@ const MessageSkeleton = () => (
     <Skeleton className="h-4 w-[220px]" />
   </div>
 );
-
-    
