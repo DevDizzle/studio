@@ -1,7 +1,8 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Bot, GitCompareArrows, Loader2, MessageSquare, Send, Settings, User, Sparkles, Menu, RefreshCw } from 'lucide-react';
+import { Bot, Loader2, MessageSquare, Send, Settings, User, Sparkles, Menu, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -261,7 +262,7 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
   
   const SidebarContent = () => (
     <div className="p-4 flex flex-col gap-4 h-full bg-background">
-        <h1 className="text-2xl font-bold font-headline mb-4 flex items-center gap-2"><GitCompareArrows className="text-primary"/>ProfitScout</h1>
+        <h1 className="text-2xl font-bold font-headline mb-4">ProfitScout</h1>
         
         <Card className="flex-1 flex flex-col">
           <CardHeader>
