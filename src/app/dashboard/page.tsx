@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import {
   type InitialRecommendationInput,
-  type InitialRecommendationOutput as FullInitialRecommendation
+  type InitialRecommendationOutput
 } from '@/ai/flows/initial-recommendation';
 import { Markdown } from '@/components/markdown';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -27,8 +27,6 @@ type Message = {
   role: 'user' | 'assistant' | 'system';
   content: string | React.ReactNode;
 };
-
-type InitialRecommendationOutput = Omit<FullInitialRecommendation, 'sections_overview'>;
 
 // Placeholder data
 const SECTORS = [
