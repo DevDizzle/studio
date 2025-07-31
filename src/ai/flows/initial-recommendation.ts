@@ -111,24 +111,11 @@ const getStockDataBundle = ai.defineTool(
   async (input) => {
     console.log("getStockDataBundle called with uri: " + input.uri);
     
-    let path = '';
-    try {
-        // First, try parsing as a full gs:// URL
-        const url = new URL(input.uri);
-        // For gs://bucket/path/to/file.json, pathname will be /path/to/file.json
-        // We need to remove the leading slash for the ref() function.
-        path = url.pathname.substring(1); 
-    } catch (e) {
-        // If that fails, assume it might be a partial path like 'profit-scout/bundles/...'
-        // or just 'bundles/...'
-        const bundleIndex = input.uri.indexOf('bundles/');
-        if (bundleIndex !== -1) {
-            path = input.uri.substring(bundleIndex);
-        } else {
-            // If all else fails, use the input as is and hope for the best
-            path = input.uri;
-        }
-        console.log("Could not parse URI as URL, falling back to parsed path:", path);
+    let path = input.uri;
+    // The firebase storage SDK doesn't need the 'gs://' prefix.
+    // By storing the full path with bucket, we make this more robust.
+    if (path.startsWith('gs://')) {
+      path = path.substring('gs://'.length);
     }
     
     const fileRef = ref(storage, path);
