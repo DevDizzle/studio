@@ -6,13 +6,13 @@ import Link from "next/link";
 const features = [
   {
     icon: <Bot className="h-8 w-8 text-primary" />,
-    title: "Instant AI Recommendations",
-    description: "Clear, reliable Buy, Hold, or Sell signals powered by advanced AI."
+    title: "AI Stock Signals",
+    description: "Clear Buy, Hold, or Sell guidance powered by advanced AI."
   },
   {
     icon: <GitCompareArrows className="h-8 w-8 text-primary" />,
-    title: "Compare Stocks Effortlessly",
-    description: "Side-by-side stock analysis for smarter portfolio decisions."
+    title: "Stock Comparisons",
+    description: "Side-by-side analysis for smarter investing decisions."
   },
     {
     icon: <Sparkles className="h-8 w-8 text-primary" />,
