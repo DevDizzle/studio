@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Bot, GitCompareArrows, LineChart, PieChart, Sparkles } from "lucide-react";
+import { ArrowRight, Bot, GitCompareArrows, LineChart, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 const features = [
@@ -14,10 +14,10 @@ const features = [
     title: "Direct Stock Comparisons",
     description: "Analyze two stocks side-by-side to make informed decisions about your portfolio."
   },
-  {
-    icon: <PieChart className="h-8 w-8 text-primary" />,
-    title: "Sector & Industry Insights",
-    description: "Understand the bigger picture with high-level analysis of market sectors and industries."
+    {
+    icon: <Sparkles className="h-8 w-8 text-primary" />,
+    title: "AI Top Pick",
+    description: "Let our AI find the single best stock for you to invest in right now based on comprehensive analysis."
   },
   {
     icon: <LineChart className="h-8 w-8 text-primary" />,

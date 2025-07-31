@@ -21,7 +21,6 @@ const InitialRecommendationInputSchema = z.object({
     .describe(
       'An array of 0, 1, 2 or up to 10 GCS URIs for stock data bundles. If 0, the AI should pick one.'
     ),
-  sector: z.string().optional().describe('The sector or industry to analyze.'),
   ticker: z.string().optional().describe('The stock ticker.'),
   companyName: z.string().optional().describe('The name of the company.'),
 });
@@ -48,10 +47,7 @@ export type InitialRecommendationOutput = z.infer<
 export async function getInitialRecommendation(
   input: InitialRecommendationInput
 ): Promise<InitialRecommendationOutput> {
-  if (input.sector) {
-    // Handles both sector and industry analysis (placeholder)
-    return sectorRecommendationFlow(input);
-  } else if (input.uris.length === 0) {
+  if (input.uris.length === 0) {
     // AI Top Pick (placeholder)
     return aiTopPickFlow(input);
   } else if (input.uris.length === 1) {
@@ -90,11 +86,10 @@ function parseGcsUri(uri: string): { bucket: string; objectPath: string } {
   if (!uri.startsWith('gs://')) {
     throw new Error(`Invalid GCS URI: ${uri}`);
   }
-  const [, , ...parts] = uri.split('/');
-  const bucket = parts.shift()!;       // first element after scheme is the bucket
-  const objectPath = parts.join('/');  // remaining elements form the object path
-  return { bucket, objectPath };
+  const [bucket, ...objectPathParts] = uri.substring(5).split('/');
+  return { bucket, objectPath: objectPathParts.join('/') };
 }
+
 
 const getStockDataBundle = ai.defineTool(
   {
@@ -115,26 +110,64 @@ const getStockDataBundle = ai.defineTool(
 );
 
 // Single Stock Prompt
-const SINGLE_STOCK_PROMPT = `You are ProfitScout, a financial-analysis agent issuing concise BUY/HOLD/SELL recommendations for {{ticker}} – {{companyName}}.
+const SINGLE_STOCK_PROMPT = `
+You are a financial-analysis agent that issues a concise **BUY / HOLD / SELL** recommendation for one Russell 1000 company: **{{ticker}} – {{companyName}}**.
 
-Analyze based *strictly* on the provided JSON data bundle. No external calls. Vague statements are unacceptable. Every point must be backed by data from the file.
+────────────────────────────────────────
+STEP 1  |  Load the data bundle
+────────────────────────────────────────
+• Begin by calling **getStockDataBundle** with the URI **{{uris.[0]}}**.  
+• Halt and report an error if the tool call fails or the JSON cannot be parsed.  
+• Verify the bundle contains *at least* these keys  
+  \`ticker, company_name, earnings_call_summary, sec_mda, prices, technicals, financial_statements, ratios, key_metrics\`  
+  – If any are missing, note the gap and adapt your analysis; do **not** fetch external data.
 
-Your analysis must reference specific numbers and concrete examples whenever possible.
-For example:
-- “Revenue increased 12% year-over-year”
-- “Operating margin expanded from 18% to 22%”
-- “RSI is currently 74, indicating the stock may be overbought”
+────────────────────────────────────────
+STEP 2  |  Reason step-by-step (Chain-of-Thought)
+────────────────────────────────────────
+Think through the data internally before you answer.  
+Focus only on the bundle’s contents; external knowledge or web searches are disallowed.
 
-Use the getStockDataBundle tool for the URI: {{uris.[0]}}
+When reasoning, ground every claim in specific, verifiable numbers from the bundle.  
+Examples of the level of specificity expected:
 
-Your response MUST be under 750 words and structured as follows:
+* “Q2 2025 revenue **$14.4 B**, up **0.4 % YoY**.”  
+* “Free cash flow turned **–$342 M → +$963 M** sequentially.”  
+* “RSI (14-day) at **73** indicates overbought.”  
 
-- **Recommendation**: "BUY/HOLD/SELL - TICKER - Company Name - A 1-sentence summary of the key rationale."
-- **Reasoning**: An array of 3-5 bullet points. Each bullet must be data-backed.
+Key angles to consider (use only what is available):
+1. **Growth & Profitability** – revenue, EPS, operating margin trends.  
+2. **Liquidity & Leverage** – cash, net debt, interest coverage.  
+3. **Valuation** – P/E, EV/EBITDA, P/S, PEG, etc.  
+4. **Technical Signals** – moving averages, RSI, volatility.  
+5. **Qualitative Context** – management tone in *earnings_call_summary* and risks/opportunities in *sec_mda*.  
 
-End your analysis by inviting the user to ask follow-up questions about specific data sections: "To learn more, ask about: Earnings Call, MD&A, Technicals, Stock Price, Financials, Ratios, and Key Metrics."
+────────────────────────────────────────
+STEP 3  |  Decide & Draft the Answer (≤ 750 words)
+────────────────────────────────────────
+• Choose **BUY**, **HOLD**, or **SELL** based on the balance of evidence.  
+• Present a short headline line followed by a structured rationale.  
+• Use bullet points or numbered reasoning; weave the concrete numbers you cited.  
+• If critical data is absent, disclose it and lower confidence accordingly.  
+• Do *not* reveal your private chain-of-thought—only the distilled reasoning.
 
-Output strictly as JSON: {"recommendation": "...", "reasoning": ["...", "...", ...]}. No other text.
+Recommended output skeleton
+---------------------------
+BUY | HOLD | SELL  — *one-sentence headline*  
+**Rationale (evidence-based):**  
+1. …  
+2. …  
+3. …
+
+**Key Metrics Snapshot:**  
+- Revenue (latest qtr): …  
+- Operating margin: …  
+- Free cash flow: …  
+- P/E, EV/EBITDA, etc.: …  
+- RSI / 50-DMA crossover: …  
+
+**Ask Me More:**  
+Curious about the details?  Feel free to ask follow-up questions on **Earnings Call, MD&A, Technicals, Stock Price, Financials, Ratios, or Key Metrics**, and I’ll dive deeper using the same data bundle.
 `;
 
 // Compare Two Stocks Prompt
@@ -178,19 +211,6 @@ Structure:
 Keep under 500 words. Use getStockPrice if needed.
 
 Output strictly as JSON: {"recommendation": "BUY/HOLD/SELL for TICKER1 (Company1) vs. BUY/HOLD/SELL for TICKER2 (Company2) - summary sentence", "reasoning": ["bullet point 1", "bullet point 2", ...]}. No other text.`;
-
-// Sector/Industry Placeholder Prompt (simplified)
-const SECTOR_PROMPT = `You are a financial advisor providing investment recommendations.
-
-Provide a concise buy/hold/sell recommendation for the sector or industry: {{sector}} based on aggregated data from key stocks or trends.
-
-Structure:
-1. Recommendation: "BUY/HOLD/SELL for {{sector}} - 1-sentence summary of key rationale."
-2. Reasoning: 3-5 bullet points highlighting impactful factors (e.g., growth, risks). End with: "To learn more, ask a follow-up question about specific stocks or trends in this sector."
-
-Use tools for real-time data if needed. Keep under 500 words.
-
-Output strictly as JSON: {"recommendation": "BUY/HOLD/SELL for SECTOR - summary sentence", "reasoning": ["bullet point 1", "bullet point 2", ...]}. No other text.`;
 
 // AI Top Pick Placeholder Prompt (simplified, for uris.length === 0)
 const AI_TOP_PICK_PROMPT = `You are a financial advisor in "AI Top Pick" mode. Pick a single promising stock from a well-known company, provide a concise BUY/HOLD/SELL recommendation based on real-time data.
@@ -261,29 +281,6 @@ const compareTwoStocksRecommendationFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await compareTwoStocksPrompt(input);
-    return output!;
-  }
-);
-
-const sectorPrompt = ai.definePrompt(
-  {
-    name: 'sectorPrompt',
-    input: { schema: InitialRecommendationInputSchema },
-    output: { schema: InitialRecommendationOutputSchema },
-    prompt: SECTOR_PROMPT,
-    tools: [getStockPrice, getStockDataBundle],
-    config: { temperature: 0.7 }
-  }
-);
-
-const sectorRecommendationFlow = ai.defineFlow(
-  {
-    name: 'sectorRecommendationFlow',
-    inputSchema: InitialRecommendationInputSchema,
-    outputSchema: InitialRecommendationOutputSchema,
-  },
-  async (input) => {
-    const { output } = await sectorPrompt(input);
     return output!;
   }
 );

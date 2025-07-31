@@ -1,18 +1,16 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Bot, Building2, GitCompareArrows, Loader2, MessageSquare, PieChart, Send, Settings, User, Sparkles, Menu, RefreshCw } from 'lucide-react';
+import { Bot, GitCompareArrows, Loader2, MessageSquare, Send, Settings, User, Sparkles, Menu, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { getStocks, type Stock } from '@/lib/firebase';
 import { handleGetRecommendation, handleFollowUp, handleFeedback } from '../actions';
 import { MultiSelect, type Option } from '@/components/multi-select';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -28,30 +26,14 @@ type Message = {
   content: string | React.ReactNode;
 };
 
-// Placeholder data
-const SECTORS = [
-    { value: 'tech', label: 'Technology' },
-    { value: 'health', label: 'Healthcare' },
-    { value: 'finance', label: 'Finance' },
-];
-
-const INDUSTRIES = [
-    { value: 'saas', label: 'SaaS' },
-    { value: 'pharma', label: 'Pharmaceuticals' },
-    { value: 'banking', label: 'Banking' },
-];
-
 export default function DashboardPage() {
   const [stockOptions, setStockOptions] = useState<Option[]>([]);
   const [selectedTickers, setSelectedTickers] = useState<Option[]>([]);
-  const [selectedSector, setSelectedSector] = useState('');
-  const [selectedIndustry, setSelectedIndustry] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingStocks, setIsFetchingStocks] = useState(true);
   const [initialRecommendation, setInitialRecommendation] = useState<InitialRecommendationOutput | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
-  const [activeTab, setActiveTab] = useState('stock-analysis');
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const { toast } = useToast();
@@ -87,7 +69,7 @@ export default function DashboardPage() {
   };
   
   const getRecommendation = async () => {
-    if (isLaunchAnalysisDisabled()) return;
+    if (isLoading || selectedTickers.length === 0) return;
 
     setIsLoading(true);
     setIsSheetOpen(false);
@@ -96,23 +78,15 @@ export default function DashboardPage() {
     let ticker: string | undefined;
     let companyName: string | undefined;
 
-    if (activeTab === 'stock-analysis' && selectedTickers.length === 1) {
+    if (selectedTickers.length === 1) {
       [ticker, companyName] = selectedTickers[0].label.split(' - ');
     }
 
     let input: InitialRecommendationInput = {
-      uris: [],
+      uris: selectedTickers.map(t => t.value),
       ticker: ticker,
       companyName: companyName,
     };
-
-    if (activeTab === 'stock-analysis') {
-      input.uris = selectedTickers.map(t => t.value);
-    } else if (activeTab === 'sector-analysis') {
-      input.sector = selectedSector;
-    } else if (activeTab === 'industry-analysis') {
-      input.sector = selectedIndustry;
-    }
 
     setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
@@ -255,27 +229,6 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
     }
   }, [messages]);
 
-  useEffect(() => {
-    setSelectedTickers([]);
-    setSelectedSector('');
-    setSelectedIndustry('');
-    setMessages([]);
-    setInitialRecommendation(null);
-  }, [activeTab]);
-  
-  const isLaunchAnalysisDisabled = () => {
-    switch (activeTab) {
-        case 'stock-analysis':
-            return isLoading || selectedTickers.length === 0;
-        case 'sector-analysis':
-            return isLoading || !selectedSector;
-        case 'industry-analysis':
-            return isLoading || !selectedIndustry;
-        default:
-            return true;
-    }
-  }
-
   const renderAnalysisControls = () => {
     if (isFetchingStocks && stockOptions.length === 0) {
       return (
@@ -286,82 +239,41 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
       );
     }
     
-    switch(activeTab) {
-      case 'stock-analysis':
-        return (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
-              <Button variant="ghost" size="icon" onClick={fetchStocks} disabled={isFetchingStocks} aria-label="Refresh stocks">
-                <RefreshCw className={`h-4 w-4 ${isFetchingStocks ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-            <MultiSelect
-              options={stockOptions}
-              selected={selectedTickers}
-              onChange={handleTickerSelection}
-              className="w-full"
-              placeholder="Select up to 2 stocks..."
-              max={2}
-            />
-          </div>
-        );
-      case 'sector-analysis':
-        return (
-           <div className="space-y-2">
-            <label className="text-sm font-medium">Sector</label>
-            <Select onValueChange={setSelectedSector} value={selectedSector}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a sector..." />
-              </SelectTrigger>
-              <SelectContent>
-                {SECTORS.map(sector => (
-                    <SelectItem key={sector.value} value={sector.label}>
-                        {sector.label}
-                    </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        );
-      case 'industry-analysis':
-        return (
-           <div className="space-y-2">
-            <label className="text-sm font-medium">Industry</label>
-             <Select onValueChange={setSelectedIndustry} value={selectedIndustry}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select an industry..." />
-              </SelectTrigger>
-              <SelectContent>
-                {INDUSTRIES.map(industry => (
-                    <SelectItem key={industry.value} value={industry.label}>
-                        {industry.label}
-                    </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        );
-      default:
-        return null;
-    }
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium">Stock Tickers (Max 2)</label>
+          <Button variant="ghost" size="icon" onClick={fetchStocks} disabled={isFetchingStocks} aria-label="Refresh stocks">
+            <RefreshCw className={`h-4 w-4 ${isFetchingStocks ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+        <MultiSelect
+          options={stockOptions}
+          selected={selectedTickers}
+          onChange={handleTickerSelection}
+          className="w-full"
+          placeholder="Select up to 2 stocks..."
+          max={2}
+        />
+      </div>
+    );
   }
   
   const SidebarContent = () => (
     <div className="p-4 flex flex-col gap-4 h-full bg-background">
-        <h1 className="text-2xl font-bold font-headline mb-4">ProfitScout</h1>
+        <h1 className="text-2xl font-bold font-headline mb-4 flex items-center gap-2"><GitCompareArrows className="text-primary"/>ProfitScout</h1>
         
         <Card className="flex-1 flex flex-col">
           <CardHeader>
             <CardTitle className="font-headline flex items-center gap-2">
                 <Settings className="text-primary" />
-                Controls
+                Stock Analysis
             </CardTitle>
-            <CardDescription>Select analysis type and options</CardDescription>
+            <CardDescription>Select stocks to analyze or compare</CardDescription>
           </CardHeader>
           <CardContent className="flex-grow flex flex-col gap-4">
             {renderAnalysisControls()}
-            <Button onClick={getRecommendation} disabled={isLaunchAnalysisDisabled()} className="w-full mt-auto">
+            <Button onClick={getRecommendation} disabled={isLoading || selectedTickers.length === 0} className="w-full mt-auto">
               {isLoading && messages.length > 0 && selectedTickers.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Launch Analysis
             </Button>
@@ -430,22 +342,9 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
           </Sheet>
            <h1 className="text-xl font-bold font-headline text-primary">ProfitScout</h1>
          </header>
-         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow flex flex-col">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="stock-analysis"><GitCompareArrows className="mr-2" />Stock Analysis</TabsTrigger>
-            <TabsTrigger value="sector-analysis"><PieChart className="mr-2" />Sector Analysis</TabsTrigger>
-            <TabsTrigger value="industry-analysis"><Building2 className="mr-2" />Industry Analysis</TabsTrigger>
-          </TabsList>
-          <TabsContent value="stock-analysis" className="flex flex-col mt-4 flex-grow">
+         <div className="flex-grow flex flex-col">
             {renderChat()}
-          </TabsContent>
-          <TabsContent value="sector-analysis" className="flex flex-col mt-4 flex-grow">
-            {renderChat()}
-          </TabsContent>
-          <TabsContent value="industry-analysis" className="flex flex-col mt-4 flex-grow">
-            {renderChat()}
-          </TabsContent>
-        </Tabs>
+         </div>
       </main>
     </div>
   );
@@ -458,7 +357,7 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
                   <Bot className="h-12 w-12 text-primary" />
                 </div>
                 <h2 className="text-xl font-semibold text-foreground">Welcome to ProfitScout</h2>
-                <p className="max-w-md mt-2">To get started, configure your analysis in the controls panel and launch your analysis.</p>
+                <p className="max-w-md mt-2">To get started, select one or two stocks and click "Launch Analysis", or let our AI find a top pick for you.</p>
             </div>
         )
     }
