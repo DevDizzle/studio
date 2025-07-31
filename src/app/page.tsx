@@ -12,7 +12,7 @@ const features = [
   {
     icon: <GitCompareArrows className="h-8 w-8 text-primary" />,
     title: "Stock Comparisons",
-    description: "Side-by-side analysis for smarter investing decisions."
+    description: "Side-by-side stock analysis for smarter portfolio decisions."
   },
     {
     icon: <Sparkles className="h-8 w-8 text-primary" />,
