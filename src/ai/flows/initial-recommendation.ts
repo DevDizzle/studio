@@ -110,103 +110,47 @@ const getStockDataBundle = ai.defineTool(
   },
   async (input) => {
     console.log("getStockDataBundle called with uri: " + input.uri);
-    // Fetch from GCS using initialized storage
-    const fileRef = ref(storage, input.uri.replace('gs://', ''));
-    const buffer = await getBytes(fileRef);
-    const jsonString = new TextDecoder().decode(buffer);
-    return JSON.parse(jsonString);
+    try {
+        const url = new URL(input.uri);
+        const bucket = url.hostname;
+        const path = url.pathname.substring(1);
+        const fileRef = ref(getStorage(app, `gs://${bucket}`), path);
+
+        const buffer = await getBytes(fileRef);
+        const jsonString = new TextDecoder().decode(buffer);
+        return JSON.parse(jsonString);
+    } catch (e) {
+        // Fallback for non-URL GCS paths, e.g., profit-scout/bundles/...
+        console.log("Could not parse URI as URL, falling back to direct path", e);
+        const fileRef = ref(storage, input.uri.replace(`gs://${firebaseConfig.storageBucket}/`, ''));
+        const buffer = await getBytes(fileRef);
+        const jsonString = new TextDecoder().decode(buffer);
+        return JSON.parse(jsonString);
+    }
   }
 );
 
 // Single Stock Prompt
-const SINGLE_STOCK_PROMPT = `
-You are ProfitScout, an advanced financial-analysis agent issuing concise BUY / HOLD / SELL recommendations for {{ticker}} – {{companyName}} (Russell 1000).
+const SINGLE_STOCK_PROMPT = `You are ProfitScout, a financial-analysis agent issuing concise BUY/HOLD/SELL recommendations for {{ticker}} – {{companyName}}.
 
-─────────────────────
-1) Load data FIRST
-─────────────────────
-• Call \`getStockDataBundle\` for URI {{uris.[0]}} and **wait for a valid JSON**.  
-• If the call fails or required fields are missing, reply with:  
-  {"error": "Reason data bundle could not be loaded"} and STOP.
+Analyze based *strictly* on the provided JSON data bundle. No external calls. Vague statements are unacceptable. Every point must be backed by data from the file.
 
-Required fields  
-• ticker • company_name • earnings_call_summary  
-• sec_mda • prices (90-day OHLC) • technicals  
-• financial_statements • ratios **or** key_metrics  
+Your analysis must reference specific numbers and concrete examples whenever possible.
+For example:
+- “Revenue increased 12% year-over-year”
+- “Operating margin expanded from 18% to 22%”
+- “RSI is currently 74, indicating the stock may be overbought”
 
-No external calls; reason strictly from this bundle.  
-Explicitly flag any missing field and adjust analysis.
+Use the getStockDataBundle tool for the URI: {{uris.[0]}}
 
-─────────────────────
-2) Analyse by Q → A
-─────────────────────
-For every section below:
+Your response MUST be under 750 words and structured as follows:
 
-    • **Ask yourself the listed QUESTIONS** in order, one line each.  
-    • **Answer** immediately underneath with exact figures / quotes from the bundle.  
-    • Keep Q–A pairs short (≲ 25 words per answer).  
-    • Numeric answers MUST show units, % change, and the JSON path you pulled from (e.g., “\$2.1 B, +12 % YoY - financial_statements.income_statement.revenue”).  
-    • If data missing, write “Data not provided”.
+- **Recommendation**: "BUY/HOLD/SELL - TICKER - Company Name - A 1-sentence summary of the key rationale."
+- **Reasoning**: An array of 3-5 bullet points. Each bullet must be data-backed.
 
-───────── Section A – Business Profile & Moat ─────────  
-Q1  What are the primary products / services?  
-Q2  Which segment drives the largest % of revenue?  
-Q3  What stated competitive advantage (patents, network effects, cost leadership) is evident?  
-Q4  Who are named top competitors, if any?  
-Example A1  “SaaS subscription platform (70 % FY24 revenue – business_profile.segment_breakdown).”
+End your analysis by inviting the user to ask follow-up questions about specific data sections: "To learn more, ask about: Earnings Call, MD&A, Technicals, Stock Price, Financials, Ratios, and Key Metrics."
 
-───────── Section B – Financial Health & Earnings ─────────  
-Q1  Latest quarter revenue, YoY % change?  
-Q2  EPS this quarter vs. prior-year?  
-Q3  Trend in operating margin last 4 quarters?  
-Q4  Free cash-flow this quarter?  
-Q5  Management tone highlights (1 positive, 1 risk) quoted from earnings_call_summary.  
-Example B2  “EPS \$1.12, +15 % YoY – financial_statements.income_statement.eps_diluted.”
-
-───────── Section C – Valuation ─────────  
-Q1  Current P/E and industry median?  
-Q2  EV/EBITDA vs. 5-year company average?  
-Q3  ROE and Debt-to-Equity?  
-Q4  Does valuation look Discount, Fair, or Premium? Brief justification.  
-Example C1  “P/E 28 vs. industry 22 (ratios.pe_ratio; industry_median table). Premium.”
-
-───────── Section D – Technicals & Price Action ─────────  
-Q1  90-day price return?  
-Q2  Price vs. 50- & 200-day SMAs?  
-Q3  Latest RSI value and interpretation (<30 oversold, >70 overbought)?  
-Q4  Any golden/death cross in last 30 days?  
-Example D1  “+12.5 % (prices[-1].close ÷ prices[0].close - 1).”
-
-───────── Section E – Risks & Catalysts ─────────  
-Q1  Top quantified risk from MD&A?  
-Q2  Upcoming catalyst within 12 mo (product launch, FDA, litigation resolution)?  
-Q3  Sensitivity: Which single metric would flip the thesis if it worsened?  
-Example E1  “Supply-chain disruption cut Q2 EBIT \$10 M – sec_mda ‘Operational Risks’.”
-
-─────────────────────
-3) Synthesize & Rate
-─────────────────────
-• In ≤ 75 words, weigh evidence and declare one rating: **BUY / HOLD / SELL**.  
-• Justify with 2–3 decisive, quantified points (refer to Q–A numbers, e.g., “B1, C1, D1”).  
-• Rating logic:  
-  – BUY  ≥2 growth catalysts & attractive valuation or momentum, risks manageable.  
-  – HOLD mixed signals.  
-  – SELL deteriorating fundamentals or overvaluation + weak momentum.
-
-─────────────────────
-4) Output (strict JSON, ≤ 750 words)
-─────────────────────
-{
-  "recommendation": "BUY/HOLD/SELL for {{ticker}} ({{companyName}}) – one-sentence thesis",
-  "reasoning": [
-    "Bullet 1 (≤ 30 words, cite Q codes & data)",
-    "Bullet 2",
-    "Bullet 3"
-  ]
-}
-
-Finish with this invitation appended to the last bullet:  
-“To learn more, ask about: Business Profile, Earnings Call, MD&A, Technicals, Stock Price, Financials, Ratios, Key Metrics.”
+Output strictly as JSON: {"recommendation": "...", "reasoning": ["...", "...", ...]}. No other text.
 `;
 
 // Compare Two Stocks Prompt
