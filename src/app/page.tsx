@@ -1,28 +1,28 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Bot, GitCompareArrows, LineChart, Sparkles } from "lucide-react";
+import { ArrowRight, Bot, GitCompareArrows, MessageCircleQuestion, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 const features = [
   {
     icon: <Bot className="h-8 w-8 text-primary" />,
-    title: "AI-Powered Analysis",
-    description: "Get clear buy, hold, or sell recommendations from our advanced AI synthesizer agent."
+    title: "Instant AI Recommendations",
+    description: "Clear, reliable Buy, Hold, or Sell signals powered by advanced AI."
   },
   {
     icon: <GitCompareArrows className="h-8 w-8 text-primary" />,
-    title: "Direct Stock Comparisons",
-    description: "Analyze two stocks side-by-side to make informed decisions about your portfolio."
+    title: "Compare Stocks Effortlessly",
+    description: "Side-by-side stock analysis for smarter portfolio decisions."
   },
     {
     icon: <Sparkles className="h-8 w-8 text-primary" />,
-    title: "AI Top Pick",
-    description: "Let our AI find the single best stock for you to invest in right now based on comprehensive analysis."
+    title: "AI’s Top Stock Pick",
+    description: "Discover today's best investment opportunity, handpicked by our AI."
   },
   {
-    icon: <LineChart className="h-8 w-8 text-primary" />,
-    title: "Conversational Follow-ups",
-    description: "Ask our AI follow-up questions to dive deeper into any recommendation or data point."
+    icon: <MessageCircleQuestion className="h-8 w-8 text-primary" />,
+    title: "Chat & Learn",
+    description: "Ask follow-up questions and explore deeper insights with our conversational AI."
   }
 ]
 
