@@ -110,23 +110,29 @@ const getStockDataBundle = ai.defineTool(
   },
   async (input) => {
     console.log("getStockDataBundle called with uri: " + input.uri);
+    
+    let path = '';
     try {
+        // First, try parsing as a full gs:// URL
         const url = new URL(input.uri);
-        const bucket = url.hostname;
-        const path = url.pathname.substring(1);
-        const fileRef = ref(getStorage(app, `gs://${bucket}`), path);
-
-        const buffer = await getBytes(fileRef);
-        const jsonString = new TextDecoder().decode(buffer);
-        return JSON.parse(jsonString);
+        path = url.pathname.substring(1);
     } catch (e) {
-        // Fallback for non-URL GCS paths, e.g., profit-scout/bundles/...
-        console.log("Could not parse URI as URL, falling back to direct path", e);
-        const fileRef = ref(storage, input.uri.replace(`gs://${firebaseConfig.storageBucket}/`, ''));
-        const buffer = await getBytes(fileRef);
-        const jsonString = new TextDecoder().decode(buffer);
-        return JSON.parse(jsonString);
+        // If that fails, assume it might be a partial path like 'profit-scout/bundles/...'
+        // or just 'bundles/...'
+        const bundleIndex = input.uri.indexOf('bundles/');
+        if (bundleIndex !== -1) {
+            path = input.uri.substring(bundleIndex);
+        } else {
+            // If all else fails, use the input as is and hope for the best
+            path = input.uri;
+        }
+        console.log("Could not parse URI as URL, falling back to parsed path:", path);
     }
+    
+    const fileRef = ref(storage, path);
+    const buffer = await getBytes(fileRef);
+    const jsonString = new TextDecoder().decode(buffer);
+    return JSON.parse(jsonString);
   }
 );
 
