@@ -41,10 +41,10 @@ export default function LandingPage() {
       <main className="flex-1">
         <section className="container mx-auto px-4 sm:px-6 lg:px-8 text-center py-20 sm:py-32">
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-headline tracking-tight">
-            Invest Smarter with ProfitScout
+            Smarter Investing Starts Here
           </h2>
           <p className="mt-4 text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto">
-            Get clear AI-powered recommendations—Buy, Hold, or Sell—in seconds.
+            Get clear, AI-powered recommendations—Buy, Hold, or Sell—in seconds.
             Stop guessing. Start investing confidently.
           </p>
           <div className="mt-8 flex justify-center">
