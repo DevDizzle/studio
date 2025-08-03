@@ -14,7 +14,8 @@ import {
   summarizeFeedback,
   type SummarizeFeedbackInput,
 } from '@/ai/flows/feedback-summarization';
-import { saveFeedback, getOrCreateUser, incrementUserUsage as incrementUserUsageDb, getStocksAdmin, type Stock } from '@/lib/firebase';
+import { saveFeedback, getOrCreateUser, incrementUserUsage as incrementUserUsageDb, type Stock } from '@/lib/firebase';
+import { getStocksAdmin } from '@/lib/firebase-admin';
 import { createStripeCheckoutSession } from '@/lib/stripe';
 import { headers } from 'next/headers';
 

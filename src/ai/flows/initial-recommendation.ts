@@ -10,7 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import { getStockDataBundleAdmin } from '@/lib/firebase';
+import { getStockDataBundleAdmin } from '@/lib/firebase-admin';
 
 
 const InitialRecommendationInputSchema = z.object({
