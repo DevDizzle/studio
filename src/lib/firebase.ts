@@ -1,6 +1,7 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, collection, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { getFirestore, collection, getDocs, doc, setDoc, getDoc, serverTimestamp, increment } from "firebase/firestore";
+import { getAuth } from 'firebase/auth';
 import { z } from 'zod';
 
 // Your web app's Firebase configuration
@@ -14,8 +15,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+export const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
+export const auth = getAuth(app);
+
 
 const StockSchema = z.object({
   id: z.string(), // Document ID is the ticker
@@ -68,4 +71,48 @@ export async function saveFeedback(originalFeedback: string, summary: string): P
     console.error("Error writing feedback to Firestore: ", error);
     throw new Error("Could not save feedback to the database.");
   }
+}
+
+// User Management
+const UserSchema = z.object({
+  uid: z.string(),
+  email: z.string().email().optional().nullable(),
+  displayName: z.string().optional().nullable(),
+  isAnonymous: z.boolean(),
+  isSubscribed: z.boolean(),
+  usageCount: z.number().int().nonnegative(),
+  createdAt: z.any(),
+});
+export type DbUser = z.infer<typeof UserSchema>;
+
+export async function getOrCreateUser(
+  uid: string,
+  isAnonymous: boolean = false,
+  displayName?: string,
+  email?: string
+): Promise<DbUser> {
+  const userRef = doc(db, 'users', uid);
+  const userSnap = await getDoc(userRef);
+
+  if (userSnap.exists()) {
+    return userSnap.data() as DbUser;
+  }
+
+  const newUser: DbUser = {
+    uid,
+    email: email ?? null,
+    displayName: displayName ?? null,
+    isAnonymous,
+    isSubscribed: false,
+    usageCount: 0,
+    createdAt: serverTimestamp(),
+  };
+
+  await setDoc(userRef, newUser);
+  return newUser;
+}
+
+export async function incrementUserUsage(uid: string) {
+  const userRef = doc(db, 'users', uid);
+  await setDoc(userRef, { usageCount: increment(1) }, { merge: true });
 }

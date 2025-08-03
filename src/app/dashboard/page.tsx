@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useAuth } from '@/hooks/use-auth';
 import { Bot, Loader2, MessageSquare, Send, Settings, User, Sparkles, Menu, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -9,18 +10,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { getStocks, type Stock } from '@/lib/firebase';
-import { handleGetRecommendation, handleFollowUp, handleFeedback } from '../actions';
+import { getStocks, type Stock, getOrCreateUser } from '@/lib/firebase';
+import { handleGetRecommendation, handleFollowUp, handleFeedback, checkAndIncrementUsage } from '../actions';
 import { MultiSelect, type Option } from '@/components/multi-select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import {
-  type InitialRecommendationInput,
   type InitialRecommendationOutput
 } from '@/ai/flows/initial-recommendation';
 import { Markdown } from '@/components/markdown';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-
+import { AuthDialog } from '@/components/auth/auth-dialog';
 
 type Message = {
   role: 'user' | 'assistant' | 'system';
@@ -28,6 +28,7 @@ type Message = {
 };
 
 export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth();
   const [stockOptions, setStockOptions] = useState<Option[]>([]);
   const [selectedTickers, setSelectedTickers] = useState<Option[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -36,16 +37,28 @@ export default function DashboardPage() {
   const [initialRecommendation, setInitialRecommendation] = useState<InitialRecommendationOutput | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [usageCount, setUsageCount] = useState(0);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
+  useEffect(() => {
+    if (user) {
+      getOrCreateUser(user.uid).then(dbUser => {
+        setUsageCount(dbUser.usageCount);
+        setIsSubscribed(dbUser.isSubscribed);
+      });
+    }
+  }, [user]);
+
   const fetchStocks = useCallback(async () => {
     setIsFetchingStocks(true);
     try {
       const stocks = await getStocks();
       const options = stocks.map((stock: Stock) => ({
-        value: stock.bundle_gcs_path, // Pass GCS path as value
+        value: stock.bundle_gcs_path,
         label: `${stock.id} - ${stock.company_name}`,
       }));
       setStockOptions(options);
@@ -53,7 +66,7 @@ export default function DashboardPage() {
       console.error("Failed to fetch stocks:", error);
       toast({
           title: "Error fetching stocks",
-          description: "Could not load stock data. Please check your Firebase configuration and security rules.",
+          description: "Could not load stock data. Please try again.",
           variant: "destructive"
       })
     } finally {
@@ -68,9 +81,22 @@ export default function DashboardPage() {
   const handleTickerSelection = (selected: Option[]) => {
     setSelectedTickers(selected);
   };
+
+  const checkUsageLimit = async () => {
+    if (!user) return false;
+    const dbUser = await getOrCreateUser(user.uid);
+    setUsageCount(dbUser.usageCount);
+    setIsSubscribed(dbUser.isSubscribed);
+    if (dbUser.usageCount >= 5 && !dbUser.isSubscribed) {
+      setShowAuthDialog(true);
+      return false;
+    }
+    return true;
+  }
   
   const getRecommendation = async () => {
-    if (isLoading || selectedTickers.length === 0) return;
+    if (isLoading || selectedTickers.length === 0 || !user) return;
+    if (!(await checkUsageLimit())) return;
 
     setIsLoading(true);
     setIsSheetOpen(false);
@@ -83,25 +109,39 @@ export default function DashboardPage() {
       [ticker, companyName] = selectedTickers[0].label.split(' - ');
     }
 
-    let input: InitialRecommendationInput = {
-      uris: selectedTickers.map(t => t.value),
-      ticker: ticker,
-      companyName: companyName,
-    };
-
     setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
     try {
-      const result = await handleGetRecommendation(input);
-      setInitialRecommendation(result);
+       const result = await checkAndIncrementUsage(user.uid);
+      if (!result.success) {
+        setShowAuthDialog(true);
+        setMessages([]);
+        return;
+      }
+      setUsageCount(result.usageCount);
 
-      let recommendationText = result.recommendation;
+
+      const analysisResult = await handleGetRecommendation(user.uid, {
+        uris: selectedTickers.map(t => t.value),
+        ticker: ticker,
+        companyName: companyName,
+      });
+
+      if ('error' in analysisResult) {
+         setShowAuthDialog(true);
+         setMessages([]);
+         return;
+      }
+
+      setInitialRecommendation(analysisResult);
+
+      let recommendationText = analysisResult.recommendation;
       
       const fullMessage = `
 **Recommendation:** ${recommendationText}
 
 **Reasoning:**
-${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
+${analysisResult.reasoning.map((item: string) => `- ${item}`).join('\n')}
       `;
 
       setMessages([{ role: 'assistant', content: fullMessage.trim() }]);
@@ -119,6 +159,9 @@ ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
   };
   
   const getAITopPick = async () => {
+      if (!user) return;
+      if (!(await checkUsageLimit())) return;
+
       setIsLoading(true);
       setIsSheetOpen(false);
       setMessages([]);
@@ -127,21 +170,35 @@ ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
       setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
       try {
-          const randomStocks = await getStocks(); // Use all stocks
+          const result = await checkAndIncrementUsage(user.uid);
+          if (!result.success) {
+            setShowAuthDialog(true);
+            setMessages([]);
+            return;
+          }
+          setUsageCount(result.usageCount);
+          
+          const randomStocks = await getStocks();
           if (randomStocks.length === 0) {
               throw new Error("No stocks available in the database.");
           }
           
           const uris = randomStocks.map(s => s.bundle_gcs_path);
-          const result = await handleGetRecommendation({ uris });
+          const analysisResult = await handleGetRecommendation(user.uid, { uris });
 
-          setInitialRecommendation(result);
+          if ('error' in analysisResult) {
+            setShowAuthDialog(true);
+            setMessages([]);
+            return;
+          }
+
+          setInitialRecommendation(analysisResult);
 
           const recommendationText = `
-**Recommendation:** ${result.recommendation}
+**Recommendation:** ${analysisResult.recommendation}
 
 **Reasoning:**
-${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
+${analysisResult.reasoning.map((item: string) => `- ${item}`).join('\n')}
           `;
           setMessages([{ role: 'assistant', content: recommendationText.trim() }]);
       } catch (error) {
@@ -170,7 +227,6 @@ ${result.reasoning.map((item: string) => `- ${item}`).join('\n')}
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
-    // Add skeleton for response
     setMessages(prev => [...prev, { role: 'assistant', content: <MessageSkeleton /> }]);
 
     const chatHistory = messages.map(m => ({
@@ -201,7 +257,6 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
         description: "Could not get an answer. Please try again.",
         variant: "destructive",
       });
-      // remove the user message and skeleton
       setMessages(prev => prev.slice(0, -2));
     } finally {
       setIsLoading(false);
@@ -255,6 +310,7 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
           className="w-full"
           placeholder="Select up to 2 stocks..."
           max={2}
+          disabled={authLoading}
         />
       </div>
     );
@@ -274,7 +330,10 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
           </CardHeader>
           <CardContent className="flex-grow flex flex-col gap-4">
             {renderAnalysisControls()}
-            <Button onClick={getRecommendation} disabled={isLoading || selectedTickers.length === 0} className="w-full mt-auto">
+             <p className="text-sm text-muted-foreground text-center">
+              {isSubscribed ? 'Premium Account' : `${5 - usageCount} / 5 free analyses remaining.`}
+            </p>
+            <Button onClick={getRecommendation} disabled={isLoading || authLoading || selectedTickers.length === 0} className="w-full mt-auto">
               {isLoading && messages.length > 0 && selectedTickers.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Launch Analysis
             </Button>
@@ -289,8 +348,11 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
                 </CardTitle>
                 <CardDescription>Let our AI find the best stock for you right now.</CardDescription>
             </CardHeader>
-            <CardContent className="flex-grow flex flex-col">
-                <Button onClick={getAITopPick} disabled={isLoading} className="w-full mt-auto">
+            <CardContent className="flex-grow flex flex-col justify-end gap-4">
+                 <p className="text-sm text-muted-foreground text-center">
+                   {isSubscribed ? 'Premium Account' : `${5 - usageCount} / 5 free analyses remaining.`}
+                </p>
+                <Button onClick={getAITopPick} disabled={isLoading || authLoading} className="w-full">
                     {isLoading && selectedTickers.length === 0 && messages.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Get AI Top Pick
                 </Button>
@@ -324,7 +386,9 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
   );
 
   return (
-    <div className="flex h-screen bg-background">
+    <>
+    <AuthDialog open={showAuthDialog} onOpenChange={setShowAuthDialog} />
+    <div className="flex h-[calc(100vh-4rem)] bg-background">
       <aside className="w-[350px] flex-shrink-0 border-r border-border hidden md:flex">
         <SidebarContent />
       </aside>
@@ -348,6 +412,7 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
          </div>
       </main>
     </div>
+    </>
   );
 
   function renderChat() {
@@ -402,9 +467,9 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
                 name="question"
                 placeholder="Ask a follow-up question..."
                 className="flex-1"
-                disabled={isLoading || messages.length === 0 || initialRecommendation === null}
+                disabled={isLoading || authLoading || messages.length === 0 || initialRecommendation === null}
               />
-              <Button type="submit" disabled={isLoading || messages.length === 0 || initialRecommendation === null} size="icon" aria-label="Send message">
+              <Button type="submit" disabled={isLoading || authLoading || messages.length === 0 || initialRecommendation === null} size="icon" aria-label="Send message">
                 {isLoading && messages.some(m => m.role === 'user') ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </form>

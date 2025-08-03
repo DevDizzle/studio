@@ -32,9 +32,9 @@ export default function LandingPage() {
       <header className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold font-headline text-primary">ProfitScout</h1>
-          <Button asChild variant="ghost">
-            <Link href="/dashboard">Sign In</Link>
-          </Button>
+           <Button asChild>
+              <Link href="/dashboard">Get Started</Link>
+            </Button>
         </div>
       </header>
 
