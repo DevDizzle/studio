@@ -15,13 +15,18 @@ import {
   type SummarizeFeedbackInput,
 } from '@/ai/flows/feedback-summarization';
 import { saveFeedback, getOrCreateUser, incrementUserUsage as incrementUserUsageDb } from '@/lib/firebase';
+import { createStripeCheckoutSession } from '@/lib/stripe';
+import { headers } from 'next/headers';
 
-export async function handleGetRecommendation(uid: string, input: InitialRecommendationInput): Promise<InitialRecommendationOutput | { error: string; required: 'subscription' }> {
+export async function handleGetRecommendation(uid: string, input: InitialRecommendationInput): Promise<InitialRecommendationOutput | { error: string; required?: 'subscription' | 'auth' }> {
   const user = await getOrCreateUser(uid);
   if (user.usageCount >= 5 && !user.isSubscribed) {
     return { error: 'Usage limit reached', required: 'subscription' };
   }
-  await incrementUserUsageDb(uid);
+  // Don't increment usage for subscribed users
+  if (!user.isSubscribed) {
+    await incrementUserUsageDb(uid);
+  }
   const result: InitialRecommendationOutput = await getInitialRecommendation(input);
   return result;
 }
@@ -49,12 +54,22 @@ export async function handleFeedback(feedbackText: string): Promise<void> {
   await saveFeedback(feedbackText, summaryOutput.summary);
 }
 
-export async function checkAndIncrementUsage(uid: string): Promise<{ success: boolean; usageCount: number; isSubscribed: boolean }> {
+export async function createCheckoutSession(uid: string): Promise<{ sessionId: string }> {
   const user = await getOrCreateUser(uid);
-  if (user.usageCount >= 5 && !user.isSubscribed) {
-    return { success: false, usageCount: user.usageCount, isSubscribed: user.isSubscribed };
+  const origin = headers().get('origin')!;
+  
+  const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID!;
+  if (!priceId) {
+      throw new Error('Stripe Price ID is not configured.');
   }
-  await incrementUserUsageDb(uid);
-  const updatedUser = await getOrCreateUser(uid); // Re-fetch to get the latest count
-  return { success: true, usageCount: updatedUser.usageCount, isSubscribed: updatedUser.isSubscribed };
+
+  const sessionId = await createStripeCheckoutSession(
+    uid,
+    user.email,
+    priceId,
+    `${origin}/dashboard`,
+    `${origin}/dashboard`
+  );
+
+  return { sessionId };
 }

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -15,6 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { createCheckoutSession } from '@/app/actions';
+import { loadStripe } from '@stripe/stripe-js';
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 const GoogleIcon = () => (
     <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
@@ -25,14 +28,16 @@ const GoogleIcon = () => (
 type AuthDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSubscribe?: () => void;
+  showSubscribeButton?: boolean;
 };
 
-export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
-  const { signInWithGoogle, signUpWithEmail, signInWithEmail } = useAuth();
+export function AuthDialog({ open, onOpenChange, onSubscribe, showSubscribeButton = false }: AuthDialogProps) {
+  const { user, signInWithGoogle, signUpWithEmail, signInWithEmail } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(true);
-  const [loading, setLoading] = useState<'google' | 'email' | null>(null);
+  const [loading, setLoading] = useState<'google' | 'email' | 'subscribe' | null>(null);
   const { toast } = useToast();
 
   const handleGoogleSignIn = async () => {
@@ -75,6 +80,39 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
       setLoading(null);
     }
   };
+  
+   const handleSubscribeClick = async () => {
+      if (!user) {
+        toast({
+            title: "Authentication Error",
+            description: "You must be signed in to subscribe.",
+            variant: "destructive"
+        })
+        return;
+      };
+      setLoading('subscribe');
+      try {
+          const { sessionId } = await createCheckoutSession(user.uid);
+          const stripe = await stripePromise;
+          const { error } = await stripe!.redirectToCheckout({ sessionId });
+          if (error) {
+              toast({
+                title: "Checkout Error",
+                description: error.message,
+                variant: 'destructive',
+              });
+          }
+      } catch (error) {
+          toast({
+            title: "Subscription Error",
+            description: "Could not initiate the subscription process. Please try again.",
+            variant: 'destructive',
+          });
+      } finally {
+        setLoading(null);
+      }
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -86,6 +124,13 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col space-y-4">
+          {showSubscribeButton && (
+             <Button onClick={handleSubscribeClick} disabled={!!loading}>
+                {loading === 'subscribe' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Subscribe to Pro
+            </Button>
+          )}
+
           <Button
             variant="outline"
             onClick={handleGoogleSignIn}

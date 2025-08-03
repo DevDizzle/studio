@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
-import { getFirestore, collection, getDocs, doc, setDoc, getDoc, serverTimestamp, increment } from "firebase/firestore";
+import { getFirestore, collection, getDocs, doc, setDoc, getDoc, serverTimestamp, increment, addDoc } from "firebase/firestore";
 import { getAuth } from 'firebase/auth';
 import { z } from 'zod';
 
@@ -82,6 +82,7 @@ const UserSchema = z.object({
   isSubscribed: z.boolean(),
   usageCount: z.number().int().nonnegative(),
   createdAt: z.any(),
+  stripeCustomerId: z.string().optional().nullable(),
 });
 export type DbUser = z.infer<typeof UserSchema>;
 
@@ -89,13 +90,20 @@ export async function getOrCreateUser(
   uid: string,
   isAnonymous: boolean = false,
   displayName?: string,
-  email?: string
+  email?: string,
+  stripeCustomerId?: string
 ): Promise<DbUser> {
   const userRef = doc(db, 'users', uid);
   const userSnap = await getDoc(userRef);
 
   if (userSnap.exists()) {
-    return userSnap.data() as DbUser;
+    const userData = userSnap.data() as DbUser;
+    // If user exists but is missing stripeId, update them.
+    if (!userData.stripeCustomerId && stripeCustomerId) {
+      await setDoc(userRef, { stripeCustomerId }, { merge: true });
+      return { ...userData, stripeCustomerId };
+    }
+    return userData;
   }
 
   const newUser: DbUser = {
@@ -106,6 +114,7 @@ export async function getOrCreateUser(
     isSubscribed: false,
     usageCount: 0,
     createdAt: serverTimestamp(),
+    stripeCustomerId: stripeCustomerId ?? null,
   };
 
   await setDoc(userRef, newUser);
@@ -115,4 +124,22 @@ export async function getOrCreateUser(
 export async function incrementUserUsage(uid: string) {
   const userRef = doc(db, 'users', uid);
   await setDoc(userRef, { usageCount: increment(1) }, { merge: true });
+}
+
+export async function setUserSubscriptionStatus(
+  uid: string,
+  isSubscribed: boolean
+) {
+  const userRef = doc(db, 'users', uid);
+  await setDoc(userRef, { isSubscribed }, { merge: true });
+}
+
+export async function getUserByStripeCustomerId(stripeCustomerId: string): Promise<DbUser | null> {
+  const usersRef = collection(db, 'users');
+  const q = (await getDocs(usersRef)).docs.find(doc => doc.data().stripeCustomerId === stripeCustomerId);
+  
+  if (q) {
+    return q.data() as DbUser;
+  }
+  return null;
 }

@@ -1,9 +1,9 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Bot, Loader2, MessageSquare, Send, Settings, User, Sparkles, Menu, RefreshCw } from 'lucide-react';
+import { loadStripe } from '@stripe/stripe-js';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { getStocks, type Stock, getOrCreateUser } from '@/lib/firebase';
-import { handleGetRecommendation, handleFollowUp, handleFeedback, checkAndIncrementUsage } from '../actions';
+import { handleGetRecommendation, handleFollowUp, handleFeedback, createCheckoutSession } from '../actions';
 import { MultiSelect, type Option } from '@/components/multi-select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -20,7 +20,9 @@ import {
 } from '@/ai/flows/initial-recommendation';
 import { Markdown } from '@/components/markdown';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { AuthDialog } from '@/components/auth/auth-dialog';
+import { SubscriptionDialog } from '@/components/auth/subscription-dialog';
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 type Message = {
   role: 'user' | 'assistant' | 'system';
@@ -37,16 +39,17 @@ export default function DashboardPage() {
   const [initialRecommendation, setInitialRecommendation] = useState<InitialRecommendationOutput | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
   const [usageCount, setUsageCount] = useState(0);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     if (user) {
-      getOrCreateUser(user.uid).then(dbUser => {
+      getOrCreateUser(user.uid, user.isAnonymous).then(dbUser => {
         setUsageCount(dbUser.usageCount);
         setIsSubscribed(dbUser.isSubscribed);
       });
@@ -84,11 +87,11 @@ export default function DashboardPage() {
 
   const checkUsageLimit = async () => {
     if (!user) return false;
-    const dbUser = await getOrCreateUser(user.uid);
+    const dbUser = await getOrCreateUser(user.uid, user.isAnonymous);
     setUsageCount(dbUser.usageCount);
     setIsSubscribed(dbUser.isSubscribed);
     if (dbUser.usageCount >= 5 && !dbUser.isSubscribed) {
-      setShowAuthDialog(true);
+      setShowSubscriptionDialog(true);
       return false;
     }
     return true;
@@ -112,26 +115,25 @@ export default function DashboardPage() {
     setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
     try {
-       const result = await checkAndIncrementUsage(user.uid);
-      if (!result.success) {
-        setShowAuthDialog(true);
-        setMessages([]);
-        return;
-      }
-      setUsageCount(result.usageCount);
-
-
       const analysisResult = await handleGetRecommendation(user.uid, {
         uris: selectedTickers.map(t => t.value),
         ticker: ticker,
         companyName: companyName,
       });
 
-      if ('error' in analysisResult) {
-         setShowAuthDialog(true);
+      if ('error' in analysisResult && analysisResult.required === 'subscription') {
+         setShowSubscriptionDialog(true);
          setMessages([]);
+         setIsLoading(false);
          return;
       }
+      if ('error' in analysisResult) {
+          throw new Error(analysisResult.error);
+      }
+      
+      const dbUser = await getOrCreateUser(user.uid, user.isAnonymous);
+      setUsageCount(dbUser.usageCount);
+
 
       setInitialRecommendation(analysisResult);
 
@@ -170,14 +172,6 @@ ${analysisResult.reasoning.map((item: string) => `- ${item}`).join('\n')}
       setMessages([{ role: 'assistant', content: <MessageSkeleton /> }]);
 
       try {
-          const result = await checkAndIncrementUsage(user.uid);
-          if (!result.success) {
-            setShowAuthDialog(true);
-            setMessages([]);
-            return;
-          }
-          setUsageCount(result.usageCount);
-          
           const randomStocks = await getStocks();
           if (randomStocks.length === 0) {
               throw new Error("No stocks available in the database.");
@@ -186,11 +180,18 @@ ${analysisResult.reasoning.map((item: string) => `- ${item}`).join('\n')}
           const uris = randomStocks.map(s => s.bundle_gcs_path);
           const analysisResult = await handleGetRecommendation(user.uid, { uris });
 
-          if ('error' in analysisResult) {
-            setShowAuthDialog(true);
+          if ('error' in analysisResult && analysisResult.required === 'subscription') {
+            setShowSubscriptionDialog(true);
             setMessages([]);
+            setIsLoading(false);
             return;
           }
+           if ('error' in analysisResult) {
+              throw new Error(analysisResult.error);
+           }
+          
+          const dbUser = await getOrCreateUser(user.uid, user.isAnonymous);
+          setUsageCount(dbUser.usageCount);
 
           setInitialRecommendation(analysisResult);
 
@@ -276,6 +277,31 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
     setIsLoading(false);
   };
   
+  const handleSubscribeClick = async () => {
+      if (!user) return;
+      setIsCheckingOut(true);
+      try {
+          const { sessionId } = await createCheckoutSession(user.uid);
+          const stripe = await stripePromise;
+          const { error } = await stripe!.redirectToCheckout({ sessionId });
+          if (error) {
+              toast({
+                title: "Checkout Error",
+                description: error.message,
+                variant: 'destructive',
+              });
+          }
+      } catch (error) {
+          toast({
+            title: "Subscription Error",
+            description: "Could not initiate the subscription process. Please try again.",
+            variant: 'destructive',
+          });
+      } finally {
+        setIsCheckingOut(false);
+      }
+  };
+
   useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTo({
@@ -331,7 +357,7 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
           <CardContent className="flex-grow flex flex-col gap-4">
             {renderAnalysisControls()}
              <p className="text-sm text-muted-foreground text-center">
-              {isSubscribed ? 'Premium Account' : `${5 - usageCount} / 5 free analyses remaining.`}
+              {isSubscribed ? 'Premium Account' : `${Math.max(0, 5 - usageCount)} / 5 free analyses remaining.`}
             </p>
             <Button onClick={getRecommendation} disabled={isLoading || authLoading || selectedTickers.length === 0} className="w-full mt-auto">
               {isLoading && messages.length > 0 && selectedTickers.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -350,7 +376,7 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
             </CardHeader>
             <CardContent className="flex-grow flex flex-col justify-end gap-4">
                  <p className="text-sm text-muted-foreground text-center">
-                   {isSubscribed ? 'Premium Account' : `${5 - usageCount} / 5 free analyses remaining.`}
+                   {isSubscribed ? 'Premium Account' : `${Math.max(0, 5 - usageCount)} / 5 free analyses remaining.`}
                 </p>
                 <Button onClick={getAITopPick} disabled={isLoading || authLoading} className="w-full">
                     {isLoading && selectedTickers.length === 0 && messages.length > 0 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -387,7 +413,12 @@ ${initialRecommendation.reasoning.map((item: string) => `- ${item}`).join('\n')}
 
   return (
     <>
-    <AuthDialog open={showAuthDialog} onOpenChange={setShowAuthDialog} />
+    <SubscriptionDialog 
+        open={showSubscriptionDialog} 
+        onOpenChange={setShowSubscriptionDialog}
+        onSubscribe={handleSubscribeClick}
+        loading={isCheckingOut}
+    />
     <div className="flex h-[calc(100vh-4rem)] bg-background">
       <aside className="w-[350px] flex-shrink-0 border-r border-border hidden md:flex">
         <SidebarContent />
