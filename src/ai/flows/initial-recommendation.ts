@@ -64,24 +64,6 @@ export async function getInitialRecommendation(
   }
 }
 
-const getStockPrice = ai.defineTool(
-  {
-    name: 'getStockPrice',
-    description: 'Returns the current market value of a stock from its GCS URI.',
-    inputSchema: z.object({
-      uri: z.string().describe('The GCS URI of the stock data bundle.'),
-    }),
-    outputSchema: z.number(),
-  },
-  async (input) => {
-    console.log("getStockPrice called with uri: " + input.uri);
-    // This can call any typescript function.
-    // For now, return a dummy value.  Assume it is the price.
-    return Math.random() * 100;
-  }
-);
-
-
 const getStockDataBundle = ai.defineTool(
   {
     name: 'getStockDataBundle',
@@ -123,7 +105,7 @@ Examples of the level of specificity expected:
 * “Free cash flow turned **–$342 M → +$963 M** sequentially.”  
 * “RSI (14-day) at **73** indicates overbought.”  
 
-Key angles to consider (use only what is available):
+Key angles to consider (use only what is available from the bundle):
 1. **Growth & Profitability** – revenue, EPS, operating margin trends.  
 2. **Liquidity & Leverage** – cash, net debt, interest coverage.  
 3. **Valuation** – P/E, EV/EBITDA, P/S, PEG, etc.  
@@ -132,7 +114,7 @@ Key angles to consider (use only what is available):
 
 ────────────────────────────────────────
 STEP 3  |  Decide & Draft the Answer (≤ 750 words)
-────────────────────────────────────────
+───────────────────────────
 • Choose **BUY**, **HOLD**, or **SELL** based on the balance of evidence.  
 • Present a short headline line followed by a structured rationale.  
 • Use bullet points or numbered reasoning; weave the concrete numbers you cited.  
@@ -196,18 +178,18 @@ Structure:
 - Recommendation: "BUY/HOLD/SELL for TICKER1 (Company1) vs. BUY/HOLD/SELL for TICKER2 (Company2) - 1-sentence comparative summary."
 - Reasoning: 3-5 bullets with comparative, data-backed insights. End with: "To learn more, ask a follow-up question about any of these sections: Business Profile, Earnings Call, MD&A, Technicals, Stock Price, Financials, Ratios, and Key Metrics for either stock."
 
-Keep under 500 words. Use getStockPrice if needed.
+Keep under 500 words.
 
 Output strictly as JSON: {"recommendation": "BUY/HOLD/SELL for TICKER1 (Company1) vs. BUY/HOLD/SELL for TICKER2 (Company2) - summary sentence", "reasoning": ["bullet point 1", "bullet point 2", ...]}. No other text.`;
 
 // AI Top Pick Placeholder Prompt (simplified, for uris.length === 0)
-const AI_TOP_PICK_PROMPT = `You are a financial advisor in "AI Top Pick" mode. Pick a single promising stock from a well-known company, provide a concise BUY/HOLD/SELL recommendation based on real-time data.
+const AI_TOP_PICK_PROMPT = `You are a financial advisor in "AI Top Pick" mode. Pick a single promising stock from a well-known company, provide a concise BUY/HOLD/SELL recommendation based on public financial data knowledge.
 
 Structure:
 1. Recommendation: "BUY/HOLD/SELL for TICKER (Company) - 1-sentence summary."
 2. Reasoning: 3-5 bullets with key factors. End with: "To learn more, ask a follow-up question about this stock's data or analysis."
 
-Use tools for data. Keep under 500 words.
+Keep under 500 words.
 
 Output strictly as JSON: {"recommendation": "BUY/HOLD/SELL for TICKER (Company Name) - summary sentence", "reasoning": ["bullet point 1", "bullet point 2", ...]}. No other text.`;
 
@@ -233,7 +215,7 @@ const singleStockPrompt = ai.definePrompt(
     input: { schema: InitialRecommendationInputSchema },
     output: { schema: InitialRecommendationOutputSchema },
     prompt: SINGLE_STOCK_PROMPT,
-    tools: [getStockPrice, getStockDataBundle],
+    tools: [getStockDataBundle],
     config: { temperature: 0.7 }
   }
 );
@@ -256,7 +238,7 @@ const compareTwoStocksPrompt = ai.definePrompt(
     input: { schema: InitialRecommendationInputSchema },
     output: { schema: InitialRecommendationOutputSchema },
     prompt: COMPARE_TWO_STOCKS_PROMPT,
-    tools: [getStockPrice, getStockDataBundle],
+    tools: [getStockDataBundle],
     config: { temperature: 0.7 }
   }
 );
@@ -279,7 +261,7 @@ const aiTopPickPrompt = ai.definePrompt(
     input: { schema: InitialRecommendationInputSchema },
     output: { schema: InitialRecommendationOutputSchema },
     prompt: AI_TOP_PICK_PROMPT,
-    tools: [getStockPrice, getStockDataBundle],
+    tools: [], // No tools needed for this simplified placeholder
     config: { temperature: 0.7 }
   }
 );
@@ -302,7 +284,7 @@ const multiStockTopPickPrompt = ai.definePrompt(
     input: { schema: InitialRecommendationInputSchema },
     output: { schema: InitialRecommendationOutputSchema },
     prompt: MULTI_STOCK_TOP_PICK_PROMPT,
-    tools: [getStockPrice, getStockDataBundle],
+    tools: [getStockDataBundle],
     config: { temperature: 0.7 }
   }
 );
