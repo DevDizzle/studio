@@ -23,6 +23,7 @@ const InitialRecommendationInputSchema = z.object({
     ),
   ticker: z.string().optional().describe('The stock ticker.'),
   companyName: z.string().optional().describe('The name of the company.'),
+  traceId: z.string().optional().describe('A unique ID for tracing the request through logs.'),
 });
 export type InitialRecommendationInput = z.infer<
   typeof InitialRecommendationInputSchema
@@ -70,11 +71,16 @@ const getStockDataBundle = ai.defineTool(
     description: 'Fetches and returns the full JSON content of a stock data bundle from a GCS URI.',
     inputSchema: z.object({
       uri: z.string().describe('The GCS URI of the stock data bundle.'),
+      traceId: z.string().optional(),
     }),
     outputSchema: z.any(), // Flexible JSON object
   },
   async (input) => {
-    console.log(`[LOG] getStockDataBundle tool called with URI: ${input.uri}`);
+    console.log(JSON.stringify({
+      traceId: input.traceId,
+      tool: 'getStockDataBundle.run',
+      uri: input.uri
+    }));
     return getStockDataBundleAdmin(input.uri);
   }
 );
@@ -227,6 +233,10 @@ const singleStockRecommendationFlow = ai.defineFlow(
     outputSchema: InitialRecommendationOutputSchema,
   },
   async (input) => {
+    console.log(JSON.stringify({
+      traceId: input.traceId,
+      flow: 'singleStockRecommendationFlow.start',
+    }));
     const { output } = await singleStockPrompt(input);
     return output!;
   }

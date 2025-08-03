@@ -18,22 +18,59 @@ import { saveFeedback, getOrCreateUser, incrementUserUsage as incrementUserUsage
 import { getStocksAdmin } from '@/lib/firebase-admin';
 import { createStripeCheckoutSession } from '@/lib/stripe';
 import { headers } from 'next/headers';
+import { randomUUID } from 'crypto';
+
 
 export async function getStocks(): Promise<Stock[]> {
     return getStocksAdmin();
 }
 
 export async function handleGetRecommendation(uid: string, input: InitialRecommendationInput): Promise<InitialRecommendationOutput | { error: string; required?: 'subscription' | 'auth' }> {
-  const user = await getOrCreateUser(uid);
-  if (user.usageCount >= 5 && !user.isSubscribed) {
-    return { error: 'Usage limit reached', required: 'subscription' };
+  const traceId = randomUUID();
+  console.log(JSON.stringify({
+    traceId,
+    action: 'handleGetRecommendation.start',
+    uid,
+    input
+  }));
+  
+  try {
+    console.log(JSON.stringify({ traceId, msg: 'Attempting to get or create user.' }));
+    const user = await getOrCreateUser(uid);
+    console.log(JSON.stringify({ traceId, msg: 'Successfully got or created user.', isSubscribed: user.isSubscribed, usageCount: user.usageCount }));
+    
+    if (user.usageCount >= 5 && !user.isSubscribed) {
+      console.warn(JSON.stringify({ traceId, warning: 'Usage limit reached', required: 'subscription' }));
+      return { error: 'Usage limit reached', required: 'subscription' };
+    }
+    
+    // Don't increment usage for subscribed users
+    if (!user.isSubscribed) {
+      console.log(JSON.stringify({ traceId, msg: 'Attempting to increment user usage.' }));
+      await incrementUserUsageDb(uid);
+      console.log(JSON.stringify({ traceId, msg: 'Successfully incremented user usage.' }));
+    }
+
+    const flowInput = { ...input, traceId };
+    
+    console.log(JSON.stringify({ traceId, msg: 'Calling getInitialRecommendation flow.' }));
+    const result: InitialRecommendationOutput = await getInitialRecommendation(flowInput);
+    console.log(JSON.stringify({ traceId, msg: 'Successfully received result from getInitialRecommendation flow.' }));
+    
+    return result;
+
+  } catch(error: any) {
+    console.error(JSON.stringify({
+        traceId,
+        action: 'handleGetRecommendation.error',
+        error: {
+            message: error.message,
+            stack: error.stack,
+        }
+    }));
+    // Re-throw the error to be caught by the client
+    throw error;
   }
-  // Don't increment usage for subscribed users
-  if (!user.isSubscribed) {
-    await incrementUserUsageDb(uid);
-  }
-  const result: InitialRecommendationOutput = await getInitialRecommendation(input);
-  return result;
 }
 
 
