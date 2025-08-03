@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
-import { getFirestore, collection, getDocs, doc, setDoc, getDoc, serverTimestamp, increment, addDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, doc, setDoc, getDoc, serverTimestamp, increment, addDoc, Timestamp } from "firebase/firestore";
 import { getAuth } from 'firebase/auth';
 import { z } from 'zod';
 
@@ -50,7 +50,7 @@ const UserSchema = z.object({
   isAnonymous: z.boolean(),
   isSubscribed: z.boolean(),
   usageCount: z.number().int().nonnegative(),
-  createdAt: z.any(),
+  createdAt: z.any().optional(), // Can be Timestamp or FieldValue
   stripeCustomerId: z.string().optional().nullable(),
 });
 export type DbUser = z.infer<typeof UserSchema>;
@@ -87,7 +87,9 @@ export async function getOrCreateUser(
   };
 
   await setDoc(userRef, newUser);
-  return newUser;
+  // After creation, re-fetch to get a consistent object with a server timestamp
+  const newUserSnap = await getDoc(userRef);
+  return newUserSnap.data() as DbUser;
 }
 
 export async function incrementUserUsage(uid: string) {

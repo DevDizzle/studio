@@ -1,8 +1,9 @@
 'use server';
 
 import { initializeApp as initializeAdminApp, getApps as getAdminApps, cert } from 'firebase-admin/app';
-import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
+import { getFirestore as getAdminFirestore, FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
+import type { DbUser } from './firebase';
 
 if (getAdminApps().length === 0) {
   initializeAdminApp({
@@ -74,4 +75,62 @@ export async function getRandomStocks(count: number): Promise<Stock[]> {
     }
 
     return allStocks.slice(0, count);
+}
+
+// Admin version of user management functions
+export async function getOrCreateUserAdmin(
+  uid: string,
+  isAnonymous: boolean = false,
+  displayName?: string,
+  email?: string,
+  stripeCustomerId?: string
+): Promise<DbUser> {
+  const userRef = adminDb.collection('users').doc(uid);
+  const userSnap = await userRef.get();
+
+  if (userSnap.exists) {
+    const userData = userSnap.data() as DbUser;
+    if (!userData.stripeCustomerId && stripeCustomerId) {
+      await userRef.set({ stripeCustomerId }, { merge: true });
+      return { ...userData, stripeCustomerId };
+    }
+    return userData;
+  }
+
+  const newUser: DbUser = {
+    uid,
+    email: email ?? null,
+    displayName: displayName ?? null,
+    isAnonymous,
+    isSubscribed: false,
+    usageCount: 0,
+    createdAt: FieldValue.serverTimestamp(),
+    stripeCustomerId: stripeCustomerId ?? null,
+  };
+
+  await userRef.set(newUser);
+  return newUser;
+}
+
+export async function incrementUserUsageAdmin(uid: string) {
+  const userRef = adminDb.collection('users').doc(uid);
+  await userRef.update({ usageCount: FieldValue.increment(1) });
+}
+
+export async function setUserSubscriptionStatusAdmin(
+  uid: string,
+  isSubscribed: boolean
+) {
+  const userRef = adminDb.collection('users').doc(uid);
+  await userRef.set({ isSubscribed }, { merge: true });
+}
+
+export async function getUserByStripeCustomerIdAdmin(stripeCustomerId: string): Promise<DbUser | null> {
+    const usersRef = adminDb.collection('users');
+    const q = await usersRef.where('stripeCustomerId', '==', stripeCustomerId).limit(1).get();
+    
+    if (!q.empty) {
+        return q.docs[0].data() as DbUser;
+    }
+    return null;
 }

@@ -14,8 +14,13 @@ import {
   summarizeFeedback,
   type SummarizeFeedbackInput,
 } from '@/ai/flows/feedback-summarization';
-import { saveFeedback, getOrCreateUser, incrementUserUsage as incrementUserUsageDb, type Stock } from '@/lib/firebase';
-import { getStocksAdmin } from '@/lib/firebase-admin';
+import { saveFeedback } from '@/lib/firebase';
+import { 
+    getStocksAdmin, 
+    getOrCreateUserAdmin,
+    incrementUserUsageAdmin,
+} from '@/lib/firebase-admin';
+import type { Stock } from '@/lib/firebase';
 import { createStripeCheckoutSession } from '@/lib/stripe';
 import { headers } from 'next/headers';
 import { randomUUID } from 'crypto';
@@ -35,8 +40,8 @@ export async function handleGetRecommendation(uid: string, input: InitialRecomme
   }));
   
   try {
-    console.log(JSON.stringify({ traceId, msg: 'Attempting to get or create user.' }));
-    const user = await getOrCreateUser(uid);
+    console.log(JSON.stringify({ traceId, msg: 'Attempting to get or create user using Admin SDK.' }));
+    const user = await getOrCreateUserAdmin(uid);
     console.log(JSON.stringify({ traceId, msg: 'Successfully got or created user.', isSubscribed: user.isSubscribed, usageCount: user.usageCount }));
     
     if (user.usageCount >= 5 && !user.isSubscribed) {
@@ -46,8 +51,8 @@ export async function handleGetRecommendation(uid: string, input: InitialRecomme
     
     // Don't increment usage for subscribed users
     if (!user.isSubscribed) {
-      console.log(JSON.stringify({ traceId, msg: 'Attempting to increment user usage.' }));
-      await incrementUserUsageDb(uid);
+      console.log(JSON.stringify({ traceId, msg: 'Attempting to increment user usage with Admin SDK.' }));
+      await incrementUserUsageAdmin(uid);
       console.log(JSON.stringify({ traceId, msg: 'Successfully incremented user usage.' }));
     }
 
@@ -97,7 +102,7 @@ export async function handleFeedback(feedbackText: string): Promise<void> {
 }
 
 export async function createCheckoutSession(uid: string): Promise<{ sessionId: string }> {
-  const user = await getOrCreateUser(uid);
+  const user = await getOrCreateUserAdmin(uid);
   const origin = headers().get('origin')!;
   
   const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID!;

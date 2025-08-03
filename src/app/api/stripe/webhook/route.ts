@@ -2,16 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
-import { setUserSubscriptionStatus, getUserByStripeCustomerId } from '@/lib/firebase';
+import { setUserSubscriptionStatusAdmin, getUserByStripeCustomerIdAdmin } from '@/lib/firebase-admin';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 async function handleSubscriptionChange(subscription: Stripe.Subscription, isSubscribed: boolean) {
     const customerId = subscription.customer as string;
-    const user = await getUserByStripeCustomerId(customerId);
+    const user = await getUserByStripeCustomerIdAdmin(customerId);
 
     if (user) {
-        await setUserSubscriptionStatus(user.uid, isSubscribed);
+        await setUserSubscriptionStatusAdmin(user.uid, isSubscribed);
     } else {
         console.warn(`Webhook Error: No user found with Stripe Customer ID: ${customerId}`);
     }

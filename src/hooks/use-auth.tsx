@@ -12,10 +12,12 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  linkWithCredential
+  linkWithCredential,
+  EmailAuthProvider,
 } from 'firebase/auth';
 import { app, getOrCreateUser } from '@/lib/firebase';
 import { useToast } from './use-toast';
+import { getOrCreateUserAdmin } from '@/lib/firebase-admin';
 
 const auth = getAuth(app);
 
@@ -41,7 +43,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
-        await getOrCreateUser(user.uid, user.isAnonymous);
+        // Still use client version here for initial load, as this runs client-side.
+        await getOrCreateUser(user.uid, user.isAnonymous); 
       } else {
         // If no user, sign in anonymously
         await signInAnonymously(auth);
@@ -58,21 +61,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         const result = await linkWithCredential(auth.currentUser, credential);
         setUser(result.user);
-        await getOrCreateUser(result.user.uid, false, result.user.displayName || undefined, result.user.email || undefined);
+        // Use the admin version here because we are creating/merging user data authoritatively
+        await getOrCreateUserAdmin(result.user.uid, false, result.user.displayName || undefined, result.user.email || undefined);
         toast({ title: "Accounts linked successfully." });
       } catch (error: any) {
         console.error("Error linking accounts:", error);
-        // Handle specific errors like 'auth/credential-already-in-use'
         if (error.code === 'auth/credential-already-in-use') {
             toast({
                 title: "Account already exists",
-                description: "This Google account is already associated with a user. Please sign in directly.",
+                description: "This account is already associated with a user. Signing you in directly.",
                 variant: 'destructive'
-            })
+            });
             // Sign in with the credential directly as linking failed.
              await signInWithPopup(auth, credential.providerId === 'google.com' ? new GoogleAuthProvider() : credential)
         } else {
-            throw error; // Re-throw other errors
+            toast({
+              title: "Linking Failed",
+              description: error.message,
+              variant: "destructive"
+            })
         }
       }
     }
@@ -85,7 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
          await linkAnonymousAccount(provider);
       } else {
         const result = await signInWithPopup(auth, provider);
-        await getOrCreateUser(result.user.uid, false, result.user.displayName || undefined, result.user.email || undefined);
+        await getOrCreateUserAdmin(result.user.uid, false, result.user.displayName || undefined, result.user.email || undefined);
       }
     } catch (error) {
       console.error("Google sign-in error", error);
@@ -96,14 +103,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUpWithEmail = async (email: string, password: string) => {
     try {
        if (auth.currentUser && auth.currentUser.isAnonymous) {
-        const credential = createUserWithEmailAndPassword(auth, email, password);
-        await linkWithCredential(auth.currentUser, (await credential).credential!);
-        const newUser = (await credential).user;
-        await getOrCreateUser(newUser.uid, false, newUser.displayName || undefined, newUser.email || undefined);
-
+        const credential = EmailAuthProvider.credential(email, password);
+        await linkAnonymousAccount(credential);
        } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await getOrCreateUser(userCredential.user.uid, false, userCredential.user.displayName || undefined, userCredential.user.email || undefined);
+        await getOrCreateUserAdmin(userCredential.user.uid, false, userCredential.user.displayName || undefined, userCredential.user.email || undefined);
        }
     } catch (error) {
         console.error("Email sign-up error", error);

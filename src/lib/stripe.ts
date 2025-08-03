@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { getOrCreateUser } from './firebase';
+import { getOrCreateUserAdmin } from './firebase-admin';
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
@@ -13,7 +13,7 @@ export async function createStripeCheckoutSession(
     successUrl: string,
     cancelUrl: string
   ) {
-    let user = await getOrCreateUser(uid);
+    let user = await getOrCreateUserAdmin(uid);
     let customerId = user.stripeCustomerId;
 
     // Create a new Stripe customer if one doesn't exist
@@ -26,7 +26,7 @@ export async function createStripeCheckoutSession(
         });
         customerId = customer.id;
         // Update user in Firebase with the new Stripe Customer ID
-        await getOrCreateUser(uid, user.isAnonymous, user.displayName, user.email, customerId);
+        await getOrCreateUserAdmin(uid, user.isAnonymous, user.displayName, user.email, customerId);
     }
   
     const session = await stripe.checkout.sessions.create({
