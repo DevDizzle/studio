@@ -2,9 +2,11 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getFirestore, collection, getDocs, doc, setDoc, getDoc, serverTimestamp, increment, addDoc } from "firebase/firestore";
 import { getAuth } from 'firebase/auth';
+import { initializeApp as initializeAdminApp, getApps as getAdminApps, cert } from 'firebase-admin/app';
+import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
-// Your web app's Firebase configuration
+// Client-side Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -14,10 +16,22 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-// Initialize Firebase
+// Initialize Firebase for the client
 export const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 export const auth = getAuth(app);
+
+// Server-side Firebase Admin SDK configuration
+if (getAdminApps().length === 0) {
+  initializeAdminApp({
+    credential: cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+  });
+}
+const adminDb = getAdminFirestore();
 
 
 const StockSchema = z.object({
@@ -28,8 +42,9 @@ const StockSchema = z.object({
 export type Stock = z.infer<typeof StockSchema>;
 
 
-export async function getStocks(): Promise<Stock[]> {
-    const querySnapshot = await getDocs(collection(db, "stocks"));
+// This function now uses the Admin SDK and should only be called from the server (e.g., in a Server Action)
+export async function getStocksAdmin(): Promise<Stock[]> {
+    const querySnapshot = await adminDb.collection("stocks").get();
     const stocks: Stock[] = [];
     querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -49,7 +64,7 @@ export async function getStocks(): Promise<Stock[]> {
 }
 
 export async function getRandomStocks(count: number): Promise<Stock[]> {
-    const allStocks = await getStocks();
+    const allStocks = await getStocksAdmin();
     
     // Shuffle the array
     for (let i = allStocks.length - 1; i > 0; i--) {

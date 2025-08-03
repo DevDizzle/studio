@@ -14,9 +14,13 @@ import {
   summarizeFeedback,
   type SummarizeFeedbackInput,
 } from '@/ai/flows/feedback-summarization';
-import { saveFeedback, getOrCreateUser, incrementUserUsage as incrementUserUsageDb } from '@/lib/firebase';
+import { saveFeedback, getOrCreateUser, incrementUserUsage as incrementUserUsageDb, getStocksAdmin, type Stock } from '@/lib/firebase';
 import { createStripeCheckoutSession } from '@/lib/stripe';
 import { headers } from 'next/headers';
+
+export async function getStocks(): Promise<Stock[]> {
+    return getStocksAdmin();
+}
 
 export async function handleGetRecommendation(uid: string, input: InitialRecommendationInput): Promise<InitialRecommendationOutput | { error: string; required?: 'subscription' | 'auth' }> {
   const user = await getOrCreateUser(uid);

@@ -10,8 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { getStocks, type Stock, getOrCreateUser } from '@/lib/firebase';
-import { handleGetRecommendation, handleFollowUp, handleFeedback, createCheckoutSession } from '../actions';
+import { getOrCreateUser } from '@/lib/firebase';
+import type { Stock } from '@/lib/firebase';
+import { handleGetRecommendation, handleFollowUp, handleFeedback, createCheckoutSession, getStocks } from '../actions';
 import { MultiSelect, type Option } from '@/components/multi-select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
