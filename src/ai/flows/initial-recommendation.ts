@@ -92,6 +92,7 @@ const getStockDataBundle = ai.defineTool(
     outputSchema: z.any(), // Flexible JSON object
   },
   async (input) => {
+    console.log(`[LOG] getStockDataBundle tool called with URI: ${input.uri}`);
     return getStockDataBundleAdmin(input.uri);
   }
 );
