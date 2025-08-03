@@ -22,6 +22,7 @@ const auth = getAuth(app);
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  authCompleted: boolean;
   signInWithGoogle: () => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
@@ -33,6 +34,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authCompleted, setAuthCompleted] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,6 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await signInAnonymously(auth);
       }
       setLoading(false);
+      setAuthCompleted(true);
     });
 
     return () => unsubscribe();
@@ -129,7 +132,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signUpWithEmail, signInWithEmail, signOut }}>
+    <AuthContext.Provider value={{ user, loading, authCompleted, signInWithGoogle, signUpWithEmail, signInWithEmail, signOut }}>
       {children}
     </AuthContext.Provider>
   );

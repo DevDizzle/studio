@@ -30,7 +30,7 @@ type Message = {
 };
 
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, authCompleted } = useAuth();
   const [stockOptions, setStockOptions] = useState<Option[]>([]);
   const [selectedTickers, setSelectedTickers] = useState<Option[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -78,8 +78,10 @@ export default function DashboardPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchStocks();
-  }, [fetchStocks]);
+    if (authCompleted) {
+        fetchStocks();
+    }
+  }, [authCompleted, fetchStocks]);
 
   const handleTickerSelection = (selected: Option[]) => {
     setSelectedTickers(selected);
