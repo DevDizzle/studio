@@ -6,6 +6,7 @@ import { initializeApp as initializeAdminApp, getApps as getAdminApps, cert } fr
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
+
 // Client-side Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -62,6 +63,26 @@ export async function getStocksAdmin(): Promise<Stock[]> {
     });
     return stocks;
 }
+
+/** Convert a gs:// URI into its bucket and object path parts. */
+function parseGcsUri(uri: string): { bucket: string; objectPath: string } {
+  if (!uri.startsWith('gs://')) {
+    throw new Error(`Invalid GCS URI: ${uri}`);
+  }
+  const [bucket, ...objectPathParts] = uri.substring(5).split('/');
+  return { bucket, objectPath: objectPathParts.join('/') };
+}
+
+export async function getStockDataBundleAdmin(uri: string): Promise<any> {
+    console.log("getStockDataBundleAdmin called with uri: " + uri);
+    // Dynamically import to ensure it's only loaded on the server
+    const { Storage } = await import('@google-cloud/storage');
+    const storage = new Storage();
+    const { bucket, objectPath } = parseGcsUri(uri);
+    const [contents] = await storage.bucket(bucket).file(objectPath).download();
+    return JSON.parse(contents.toString());
+}
+
 
 export async function getRandomStocks(count: number): Promise<Stock[]> {
     const allStocks = await getStocksAdmin();

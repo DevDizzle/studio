@@ -10,7 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import { Storage } from '@google-cloud/storage';
+import { getStockDataBundleAdmin } from '@/lib/firebase';
 
 
 const InitialRecommendationInputSchema = z.object({
@@ -81,15 +81,6 @@ const getStockPrice = ai.defineTool(
   }
 );
 
-/** Convert a gs:// URI into its bucket and object path parts. */
-function parseGcsUri(uri: string): { bucket: string; objectPath: string } {
-  if (!uri.startsWith('gs://')) {
-    throw new Error(`Invalid GCS URI: ${uri}`);
-  }
-  const [bucket, ...objectPathParts] = uri.substring(5).split('/');
-  return { bucket, objectPath: objectPathParts.join('/') };
-}
-
 
 const getStockDataBundle = ai.defineTool(
   {
@@ -98,14 +89,10 @@ const getStockDataBundle = ai.defineTool(
     inputSchema: z.object({
       uri: z.string().describe('The GCS URI of the stock data bundle.'),
     }),
-    outputSchema: z.object({}), // Flexible JSON object
+    outputSchema: z.any(), // Flexible JSON object
   },
   async (input) => {
-    console.log("getStockDataBundle called with uri: " + input.uri);
-    const { bucket, objectPath } = parseGcsUri(input.uri);
-    const storage = new Storage();
-    const [contents] = await storage.bucket(bucket).file(objectPath).download();
-    return JSON.parse(contents.toString());
+    return getStockDataBundleAdmin(input.uri);
   }
 );
 
