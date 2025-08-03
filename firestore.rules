@@ -1,0 +1,20 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow users to read and write their own data.
+    match /users/{userId} {
+      allow read, update, create: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Allow anyone to read the list of stocks.
+    match /stocks/{stockId} {
+      allow read: if true;
+    }
+
+    // Allow anyone to submit feedback.
+    match /feedback/{feedbackId} {
+      allow create: if true;
+    }
+  }
+}
